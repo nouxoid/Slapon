@@ -14,7 +14,9 @@ namespace CapSnip
         private Image capturedImage;
         private bool isAnnotating = false;
         private Point annotationStart;
-        private List<Rectangle> annotations = new List<Rectangle>();
+        //private List<Rectangle> annotations = new List<Rectangle>();
+        // Change the annotations list to store Annotation objects instead of Rectangles
+        private List<Annotation> annotations = new List<Annotation>();
         private bool isDrawingAnnotation = false;
         private Panel centeringPanel;
 
@@ -23,6 +25,10 @@ namespace CapSnip
         private const int MIN_WINDOW_HEIGHT = 600;
 
         private System.Windows.Forms.Label dateTimeLabel;
+
+        private Color currentColor = Color.Red; // Default color
+        private ToolStripDropDownButton colorPickerButton;
+        private const int COLOR_BUTTON_SIZE = 20;
 
         public MainForm()
         {
@@ -43,6 +49,8 @@ namespace CapSnip
         private ToolStripButton redoButton;
         private UndoRedoManager undoRedoManager = new UndoRedoManager();
 
+
+
         private void InitializeComponent()
         {
             dateTimeLabel = new Label();
@@ -55,6 +63,7 @@ namespace CapSnip
             exitButton = new ToolStripButton();
             undoButton = new ToolStripButton();
             redoButton = new ToolStripButton();
+            colorPickerButton = new ToolStripDropDownButton();
             centeringPanel = new Panel();
             ((System.ComponentModel.ISupportInitialize)pictureBox).BeginInit();
             toolStrip.SuspendLayout();
@@ -90,6 +99,10 @@ namespace CapSnip
             pictureBox.MouseMove += PictureBox_MouseMove;
             pictureBox.MouseUp += PictureBox_MouseUp;
 
+            // Initialize colorPickerButton
+            //colorPickerButton.Name = "colorPickerButton";
+            //colorPickerButton.Size = new Size(80, 22);
+            //colorPickerButton.Text = "Color Picker";
             clearAllButton = new ToolStripButton();
             // 
             // clearAllButton
@@ -264,6 +277,8 @@ namespace CapSnip
             centeringPanel.Name = "centeringPanel";
             centeringPanel.Size = new Size(784, 536);
             centeringPanel.TabIndex = 1;
+
+
             // 
             // MainForm
             // 
@@ -304,6 +319,9 @@ namespace CapSnip
             toolStrip.Padding = new Padding(5, 0, 5, 0);
             toolStrip.ImageScalingSize = new Size(20, 20);  // Larger icons
 
+            // Add this line to initialize the color picker
+            AddColorPicker();
+
             // Style individual buttons
             foreach (ToolStripItem item in toolStrip.Items)
             {
@@ -331,6 +349,7 @@ namespace CapSnip
             toolStrip.Items.Add(new ToolStripSeparator());
             toolStrip.Items.AddRange(middleGroup);
             toolStrip.Items.Add(new ToolStripSeparator());
+            
 
             // Push remaining items to right
             var spring = new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right };
@@ -439,7 +458,105 @@ namespace CapSnip
             }
         }
 
-        private void NewCapture_Click(object sender, EventArgs e)
+        private void AddColorPicker()
+        {
+            colorPickerButton = new ToolStripDropDownButton();
+            colorPickerButton.Text = "Color";
+            colorPickerButton.ToolTipText = "Choose annotation color";
+
+            // Create the dropdown menu
+            ToolStripDropDown dropDown = new ToolStripDropDown();
+
+            // Define your color palette
+            Color[] colors = new Color[]
+            {
+            Color.Red, Color.Blue, Color.Green, Color.Yellow,
+            Color.Orange, Color.Purple, Color.Black, Color.White
+            };
+
+            foreach (Color color in colors)
+            {
+                var colorItem = new ToolStripMenuItem()
+                {
+                    BackColor = color,
+                    // Use white text for dark colors, black for light colors
+                    ForeColor = (color.R * 0.299 + color.G * 0.587 + color.B * 0.114) > 186
+                        ? Color.Black
+                        : Color.White,
+                    Text = GetColorName(color),
+                    Tag = color
+                };
+
+                colorItem.Click += ColorItem_Click;
+                dropDown.Items.Add(colorItem);
+            }
+
+            // Add custom color option
+            var customColorItem = new ToolStripMenuItem("Custom Color...");
+            customColorItem.Click += CustomColorItem_Click;
+            dropDown.Items.Add(new ToolStripSeparator());
+            dropDown.Items.Add(customColorItem);
+
+            colorPickerButton.DropDown = dropDown;
+
+            // Add to toolbar (add this where you setup your toolbar items)
+            toolStrip.Items.Add(colorPickerButton);
+
+            // Update the button's appearance to show current color
+            UpdateColorButtonAppearance();
+        }
+
+        private void ColorItem_Click(object sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem menuItem && menuItem.Tag is Color color)
+            {
+                currentColor = color;
+                UpdateColorButtonAppearance();
+            }
+        }
+
+        private void CustomColorItem_Click(object sender, EventArgs e)
+        {
+            using (ColorDialog colorDialog = new ColorDialog())
+            {
+                colorDialog.Color = currentColor;
+                colorDialog.FullOpen = true;
+
+                if (colorDialog.ShowDialog() == DialogResult.OK)
+                {
+                    currentColor = colorDialog.Color;
+                    UpdateColorButtonAppearance();
+                }
+            }
+        }
+
+        private void UpdateColorButtonAppearance()
+        {
+            // Create a small bitmap showing the current color
+            using (Bitmap colorBitmap = new Bitmap(COLOR_BUTTON_SIZE, COLOR_BUTTON_SIZE))
+            using (Graphics g = Graphics.FromImage(colorBitmap))
+            {
+                using (SolidBrush brush = new SolidBrush(currentColor))
+                {
+                    g.FillRectangle(brush, 0, 0, COLOR_BUTTON_SIZE, COLOR_BUTTON_SIZE);
+                }
+                using (Pen pen = new Pen(Color.Gray))
+                {
+                    g.DrawRectangle(pen, 0, 0, COLOR_BUTTON_SIZE - 1, COLOR_BUTTON_SIZE - 1);
+                }
+                colorPickerButton.Image = new Bitmap(colorBitmap);
+            }
+        }
+
+        private string GetColorName(Color color)
+        {
+            if (color.IsNamedColor)
+                return color.Name;
+            return $"RGB({color.R},{color.G},{color.B})";
+        }
+    
+
+    private void NewCapture_Click(object sender, EventArgs e)
         {
             StartCapture();
         }
@@ -528,6 +645,7 @@ namespace CapSnip
             }
         }
 
+
         private void PictureBox_MouseUp(object sender, MouseEventArgs e)
         {
             if (isDrawingAnnotation)
@@ -535,12 +653,19 @@ namespace CapSnip
                 isDrawingAnnotation = false;
                 if (selectionRect.Width > 0 && selectionRect.Height > 0)
                 {
-                    var addAnnotationCommand = new AddAnnotationCommand(annotations, selectionRect);
+                    // Create new annotation with current color
+                    var annotation = new Annotation(selectionRect, currentColor);
+
+                    var addAnnotationCommand = new AddAnnotationCommand(
+                        annotations,
+                        annotation
+                    );
+
                     undoRedoManager.ExecuteCommand(addAnnotationCommand);
 
-                    RedrawAnnotations(); // Redraw annotations instead of drawing directly on capturedImage
-                    pictureBox.Invalidate(); // Refresh the PictureBox to reflect changes
-                    UpdateUndoRedoButtons(); // Update the state of the buttons
+                    RedrawAnnotations();
+                    pictureBox.Invalidate();
+                    UpdateUndoRedoButtons();
 
                     // Copy the updated image to the clipboard
                     CopyImageToClipboard();
@@ -555,20 +680,21 @@ namespace CapSnip
                 e.Graphics.DrawImage(capturedImage, Point.Empty);
             }
 
+            // Draw the current selection rectangle with current color
             if (isDrawingAnnotation && selectionRect.Width > 0 && selectionRect.Height > 0)
             {
-                using (Pen pen = new Pen(Color.Red, 2))
+                using (Pen pen = new Pen(currentColor, 2))
                 {
                     e.Graphics.DrawRectangle(pen, selectionRect);
                 }
             }
 
-            // Draw existing annotations
-            using (Pen pen = new Pen(Color.Red, 2))
+            // Draw existing annotations with their own colors
+            foreach (var annotation in annotations)
             {
-                foreach (var annotation in annotations)
+                using (Pen pen = new Pen(annotation.Color, 2))
                 {
-                    e.Graphics.DrawRectangle(pen, annotation);
+                    e.Graphics.DrawRectangle(pen, annotation.Rectangle);
                 }
             }
         }
@@ -611,7 +737,10 @@ namespace CapSnip
             {
                 foreach (var annotation in annotations)
                 {
-                    g.DrawRectangle(new Pen(Color.Red, 2), annotation);
+                    using (Pen pen = new Pen(annotation.Color, 2))  // Use the annotation's stored color
+                    {
+                        g.DrawRectangle(pen, annotation.Rectangle);
+                    }
                 }
             }
 
@@ -629,7 +758,7 @@ namespace CapSnip
             {
                 foreach (var annotation in annotations)
                 {
-                    g.DrawRectangle(new Pen(Color.Red, 2), annotation);
+                    g.DrawRectangle(new Pen(Color.Red, 2), annotation.Rectangle);
                 }
             }
 
@@ -641,6 +770,7 @@ namespace CapSnip
             if (annotations.Count > 0)
             {
                 annotations.Clear();
+                RedrawAnnotations();
                 undoRedoManager = new UndoRedoManager(); // Reset the undo/redo manager
                 pictureBox.Invalidate(); // Refresh the PictureBox to reflect changes
                 UpdateUndoRedoButtons(); // Update the state of the buttons
@@ -846,10 +976,10 @@ namespace CapSnip
     }
     public class AddAnnotationCommand : ICommand
     {
-        private List<Rectangle> _annotations;
-        private Rectangle _annotation;
+        private List<Annotation> _annotations;
+        private Annotation _annotation;
 
-        public AddAnnotationCommand(List<Rectangle> annotations, Rectangle annotation)
+        public AddAnnotationCommand(List<Annotation> annotations, Annotation annotation)
         {
             _annotations = annotations;
             _annotation = annotation;
@@ -863,6 +993,18 @@ namespace CapSnip
         public void Undo()
         {
             _annotations.Remove(_annotation);
+        }
+    }
+
+    public class Annotation
+    {
+        public Rectangle Rectangle { get; set; }
+        public Color Color { get; set; }
+
+        public Annotation(Rectangle rectangle, Color color)
+        {
+            Rectangle = rectangle;
+            Color = color;
         }
     }
     public class UndoRedoManager
