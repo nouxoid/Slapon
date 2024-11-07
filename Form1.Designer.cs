@@ -1,30 +1,54 @@
-﻿namespace WinFormsApp1
+﻿namespace CapSnip
 {
-    partial class Form1
+    partial class MainForm
     {
-        // Existing code...
+        /// <summary>
+        /// Required designer variable.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
 
-        #region Windows Form Designer generated code
-
-        private void InitializeComponent()
+        /// <summary>
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources being disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
         {
-            SuspendLayout();
-            // 
-            // Form1
-            // 
-            AutoScaleDimensions = new SizeF(7F, 15F);
-            AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
-            Name = "Form1";
-            Text = "Form1";
-            Load += Form1_Load;
-            ResumeLayout(false);
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            if (disposing)
+            {
+                if (pictureBox != null)
+                    pictureBox.Dispose();
+                if (toolStrip != null)
+                    toolStrip.Dispose();
+                if (saveButton != null)
+                    saveButton.Dispose();
+                if (copyButton != null)
+                    copyButton.Dispose();
+                if (annotateButton != null)
+                    annotateButton.Dispose();
+                if (newCaptureButton != null)
+                    newCaptureButton.Dispose();
+                if (exitButton != null)
+                    exitButton.Dispose();
+                if (centeringPanel != null)
+                    centeringPanel.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
-            // Add your load event handling code here
-        }
+        #region Windows Form Designer generated variables
+
+        private System.Windows.Forms.PictureBox pictureBox;
+        // Removed duplicate definition of centeringPanel
+        private System.Windows.Forms.ToolStrip toolStrip;
+        private System.Windows.Forms.ToolStripButton saveButton;
+        private System.Windows.Forms.ToolStripButton copyButton;
+        private System.Windows.Forms.ToolStripButton annotateButton;
+        private System.Windows.Forms.ToolStripButton newCaptureButton;
+        private System.Windows.Forms.ToolStripButton exitButton;
 
         #endregion
     }
