@@ -1,0 +1,910 @@
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Windows.Forms;
+using System.Drawing.Imaging;
+
+namespace CapSnip
+{
+    public partial class MainForm : Form
+    {
+        private bool isDragging = false;
+        private Point startPoint;
+        private Rectangle selectionRect;
+        private Image capturedImage;
+        private bool isAnnotating = false;
+        private Point annotationStart;
+        private List<Rectangle> annotations = new List<Rectangle>();
+        private bool isDrawingAnnotation = false;
+        private Panel centeringPanel;
+
+        private const int WINDOW_PADDING = 100; // Padding around the image
+        private const int MIN_WINDOW_WIDTH = 800;
+        private const int MIN_WINDOW_HEIGHT = 600;
+
+        private System.Windows.Forms.Label dateTimeLabel;
+
+        public MainForm()
+        {
+            InitializeComponent();
+            SetupUI();
+            this.Load += MainForm_Load;
+            this.Resize += MainForm_Resize;
+            this.KeyPreview = true; // Ensure the form captures key events
+            this.KeyDown += MainForm_KeyDown; // Add KeyDown event handler
+            UpdateUndoRedoButtons();
+            this.BackColor = Color.White;
+        }
+        public bool CanUndo => undoRedoManager.CanUndo;
+        public bool CanRedo => undoRedoManager.CanRedo;
+
+        private ToolStripButton undoButton;
+        private ToolStripButton clearAllButton;
+        private ToolStripButton redoButton;
+        private UndoRedoManager undoRedoManager = new UndoRedoManager();
+
+        private void InitializeComponent()
+        {
+            dateTimeLabel = new Label();
+            pictureBox = new PictureBox();
+            toolStrip = new ToolStrip();
+            newCaptureButton = new ToolStripButton();
+            saveButton = new ToolStripButton();
+            copyButton = new ToolStripButton();
+            annotateButton = new ToolStripButton();
+            exitButton = new ToolStripButton();
+            undoButton = new ToolStripButton();
+            redoButton = new ToolStripButton();
+            centeringPanel = new Panel();
+            ((System.ComponentModel.ISupportInitialize)pictureBox).BeginInit();
+            toolStrip.SuspendLayout();
+            centeringPanel.SuspendLayout();
+            SuspendLayout();
+            // 
+            // DateTime Label
+            this.dateTimeLabel = new Label();
+            this.dateTimeLabel.AutoSize = true; // Allow label to size to content
+            this.dateTimeLabel.BackColor = Color.FromArgb(128, 128, 128, 128); // Gray transparent background
+            this.dateTimeLabel.ForeColor = Color.White;
+            this.dateTimeLabel.TextAlign = ContentAlignment.MiddleCenter;
+            this.dateTimeLabel.Padding = new Padding(0, 10, 0, 10);
+            this.dateTimeLabel.Location = new Point((this.ClientSize.Width - this.dateTimeLabel.Width) / 2, this.ClientSize.Height - 45); // Center at bottom
+            this.dateTimeLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right; // Anchor to bottom to maintain position
+
+            // Add DateTime Label to the form
+            this.Controls.Add(this.dateTimeLabel);
+
+            this.Resize += MainForm_Resize;
+            // 
+            // pictureBox
+            // 
+            pictureBox.BackColor = Color.White; // Change to white
+            pictureBox.Location = new Point(0, 0);
+            pictureBox.Name = "pictureBox";
+            pictureBox.Size = new Size(100, 50);
+            pictureBox.SizeMode = PictureBoxSizeMode.AutoSize;
+            pictureBox.TabIndex = 0;
+            pictureBox.TabStop = false;
+            pictureBox.Paint += PictureBox_Paint;
+            pictureBox.MouseDown += PictureBox_MouseDown;
+            pictureBox.MouseMove += PictureBox_MouseMove;
+            pictureBox.MouseUp += PictureBox_MouseUp;
+
+            clearAllButton = new ToolStripButton();
+            // 
+            // clearAllButton
+            //
+            clearAllButton.ForeColor = Color.White;
+            clearAllButton.Name = "clearAllButton";
+            clearAllButton.Size = new Size(60, 22);
+            clearAllButton.Text = "Clear All";
+            clearAllButton.Click += ClearAllButton_Click;
+
+            // 
+            // toolStrip
+            // 
+            toolStrip.BackColor = Color.White;
+            toolStrip.ForeColor = Color.Black;  // Dark text for contrast
+            toolStrip.Renderer = new CustomToolStripRenderer();
+
+            toolStrip.Items.AddRange(new ToolStripItem[] { newCaptureButton, saveButton, copyButton, annotateButton, undoButton, redoButton, clearAllButton, exitButton });
+            toolStrip.Location = new Point(0, 0);
+            toolStrip.Name = "toolStrip";
+            toolStrip.Size = new Size(784, 25);
+            toolStrip.TabIndex = 2;
+
+            // Clear existing items
+            toolStrip.Items.Clear();
+
+            foreach (ToolStripItem item in toolStrip.Items)
+            {
+                if (item is ToolStripButton button)
+                {
+                    button.ForeColor = Color.Black;  // Ensure text is visible on white background
+                }
+            }
+
+            // Create padding item for left side
+            var leftPadding = new ToolStripLabel();
+            leftPadding.Text = "   ";
+
+            // Create padding item for right side
+            var rightPadding = new ToolStripLabel();
+            rightPadding.Text = "   ";
+
+            // Create dividers
+            var leftDivider = new ToolStripSeparator();
+            var rightDivider = new ToolStripSeparator();
+
+            // Create a spring to push items to the right
+            var spring = new ToolStripSeparator();
+            spring.Alignment = ToolStripItemAlignment.Right;
+
+            // Add items in the desired order with padding and dividers
+            toolStrip.Items.AddRange(new ToolStripItem[] {
+                // Left side
+                leftPadding,
+                newCaptureButton,
+    
+                // Left divider
+                leftDivider,
+    
+                // Middle section
+                annotateButton,
+                undoButton,
+                redoButton,
+                clearAllButton,
+    
+                // Right divider
+                rightDivider,
+    
+                // Right side (using spring to push to the right)
+                spring,
+                saveButton,
+                copyButton,
+                rightPadding
+            });
+
+            // Configure specific items for right alignment
+            saveButton.Alignment = ToolStripItemAlignment.Right;
+            copyButton.Alignment = ToolStripItemAlignment.Right;
+
+            // Optional: Add some margin to the buttons
+            foreach (ToolStripItem item in toolStrip.Items)
+            {
+                if (item is ToolStripButton)
+                {
+                    item.Margin = new Padding(3, 0, 3, 0);
+                }
+            }
+
+            // Optional: Configure separators to be more visible
+            leftDivider.Margin = new Padding(5, 0, 5, 0);
+            rightDivider.Margin = new Padding(5, 0, 5, 0);
+            // 
+            // newCaptureButton
+            // 
+
+            newCaptureButton.ForeColor = Color.Black; // Change text color to black
+            newCaptureButton.Name = "newCaptureButton";
+            newCaptureButton.Size = new Size(80, 22);
+            newCaptureButton.Text = "New Capture";
+            newCaptureButton.Click += NewCapture_Click;
+
+            // 
+            // saveButton
+            // 
+            saveButton.ForeColor = Color.Black; // Change text color to black
+            saveButton.Name = "saveButton";
+            saveButton.Size = new Size(35, 22);
+            saveButton.Text = "Save";
+            saveButton.Click += Save_Click;
+
+            // 
+            // copyButton
+            // 
+            copyButton.ForeColor = Color.Black; // Change text color to black
+            copyButton.Name = "copyButton";
+            copyButton.Size = new Size(39, 22);
+            copyButton.Text = "Copy";
+            copyButton.Click += Copy_Click;
+
+            // 
+            // annotateButton
+            // 
+            annotateButton.ForeColor = Color.Black; // Change text color to black
+            annotateButton.Name = "annotateButton";
+            annotateButton.Size = new Size(60, 22);
+            annotateButton.Text = "Rectangle";
+            annotateButton.Click += Annotate_Click;
+
+            // 
+            // undoButton
+            // 
+            undoButton.ForeColor = Color.Black; // Change text color to black
+            undoButton.Name = "undoButton";
+            undoButton.Size = new Size(40, 22);
+            undoButton.Text = "Undo";
+            undoButton.Click += UndoButton_Click;
+
+            // 
+            // redoButton
+            // 
+            redoButton.ForeColor = Color.Black; // Change text color to black
+            redoButton.Name = "redoButton";
+            redoButton.Size = new Size(40, 22);
+            redoButton.Text = "Redo";
+            redoButton.Click += RedoButton_Click;
+
+            // 
+            // clearAllButton
+            // 
+            clearAllButton.ForeColor = Color.Black; // Change text color to black
+            clearAllButton.Name = "clearAllButton";
+            clearAllButton.Size = new Size(60, 22);
+            clearAllButton.Text = "Clear All";
+            clearAllButton.Click += ClearAllButton_Click;
+
+            // 
+            // exitButton
+            // 
+            exitButton.ForeColor = Color.Black; // Change text color to black
+            exitButton.Name = "exitButton";
+            exitButton.Size = new Size(30, 22);
+            exitButton.Text = "Exit";
+            exitButton.Click += Exit_Click;
+            // 
+            // centeringPanel
+            // 
+            centeringPanel.AutoScroll = true;
+            centeringPanel.BackColor = Color.White; // Change to white
+            centeringPanel.Controls.Add(pictureBox);
+            centeringPanel.Dock = DockStyle.Fill;
+            centeringPanel.Location = new Point(0, 25);
+            centeringPanel.Name = "centeringPanel";
+            centeringPanel.Size = new Size(784, 536);
+            centeringPanel.TabIndex = 1;
+            // 
+            // MainForm
+            // 
+            BackColor = Color.FromArgb(45, 45, 48);
+            ClientSize = new Size(784, 561);
+            Controls.Add(dateTimeLabel);
+            Controls.Add(centeringPanel);
+            Controls.Add(toolStrip);
+            MinimumSize = new Size(800, 600);
+            Name = "MainForm";
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "CapSnip";
+            ((System.ComponentModel.ISupportInitialize)pictureBox).EndInit();
+            toolStrip.ResumeLayout(false);
+            toolStrip.PerformLayout();
+            centeringPanel.ResumeLayout(false);
+            centeringPanel.PerformLayout();
+            AddToolStripSpacing();
+            ResumeLayout(false);
+            PerformLayout();
+        }
+
+
+        private void SetupUI()
+        {
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.WindowState = FormWindowState.Normal;
+            // Set minimum size to prevent window from becoming too small
+            this.MinimumSize = new Size(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
+
+            // Modern font for toolbar
+            Font modernFont = new Font("Segoe UI", 9F, FontStyle.Regular);
+            toolStrip.Font = modernFont;
+
+            // Style the toolbar
+            toolStrip.RenderMode = ToolStripRenderMode.Professional;
+            toolStrip.Renderer = new CustomToolStripRenderer();
+            toolStrip.Padding = new Padding(5, 0, 5, 0);
+            toolStrip.ImageScalingSize = new Size(20, 20);  // Larger icons
+
+            // Style individual buttons
+            foreach (ToolStripItem item in toolStrip.Items)
+            {
+                if (item is ToolStripButton button)
+                {
+                    button.AutoSize = false;
+                    button.Size = new Size(80, 30);  // Uniform button size
+                    button.Margin = new Padding(3, 0, 3, 0);
+                    button.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+                    button.TextImageRelation = TextImageRelation.ImageBeforeText;
+                }
+            }
+        }
+
+        private void AddToolStripSpacing()
+        {
+            // Add flexible spacing between button groups
+            var leftGroup = new ToolStripButton[] { newCaptureButton };
+            var middleGroup = new ToolStripButton[] { annotateButton, undoButton, redoButton, clearAllButton };
+            var rightGroup = new ToolStripButton[] { saveButton, copyButton };
+
+            // Add spacing between groups
+            toolStrip.Items.Clear();
+            toolStrip.Items.AddRange(leftGroup);
+            toolStrip.Items.Add(new ToolStripSeparator());
+            toolStrip.Items.AddRange(middleGroup);
+            toolStrip.Items.Add(new ToolStripSeparator());
+
+            // Push remaining items to right
+            var spring = new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right };
+            toolStrip.Items.Add(spring);
+            foreach (var button in rightGroup)
+            {
+                button.Alignment = ToolStripItemAlignment.Right;
+                toolStrip.Items.Add(button);
+            }
+        }
+
+        private void MainForm_Load(object sender, EventArgs e)
+        {
+            StartCapture();
+        }
+
+        private void MainForm_Resize(object sender, EventArgs e)
+        {
+            CenterPictureBox();
+            // Reposition the DateTime label
+            dateTimeLabel.Location = new Point((this.ClientSize.Width - dateTimeLabel.Width) / 2, this.ClientSize.Height - 45);
+        }
+
+        private void CenterPictureBox()
+        {
+            if (pictureBox.Image != null)
+            {
+                // Calculate the center position within the panel
+                int x = Math.Max(0, (centeringPanel.ClientSize.Width - pictureBox.Width) / 2);
+                int y = Math.Max(0, (centeringPanel.ClientSize.Height - pictureBox.Height) / 2);
+
+                // If the image is smaller than the panel, center it
+                // If it's larger, start from top-left with small margin
+                x = pictureBox.Width > centeringPanel.ClientSize.Width ? 10 : x;
+                y = pictureBox.Height > centeringPanel.ClientSize.Height ? 10 : y;
+
+                pictureBox.Location = new Point(x, y);
+            }
+        }
+
+
+
+        private void UpdatePictureBox(Image newImage)
+        {
+            if (newImage == null) return;
+
+            pictureBox.Image = newImage;
+            pictureBox.Size = newImage.Size;
+            CenterPictureBox();
+        }
+
+        private void AdjustWindowSizeToImage()
+        {
+            if (capturedImage == null) return;
+
+            // Get the working area of the screen (excludes taskbar)
+            Rectangle workingArea = Screen.FromControl(this).WorkingArea;
+
+            // Calculate desired window size (image size + padding + toolbar height)
+            int desiredWidth = capturedImage.Width + (WINDOW_PADDING * 2);
+            int desiredHeight = capturedImage.Height + (WINDOW_PADDING * 2) + toolStrip.Height;
+
+            // Ensure window size doesn't exceed screen size
+            int windowWidth = Math.Min(workingArea.Width, Math.Max(desiredWidth, MIN_WINDOW_WIDTH));
+            int windowHeight = Math.Min(workingArea.Height, Math.Max(desiredHeight, MIN_WINDOW_HEIGHT));
+
+            // Calculate window position to center it
+            int windowX = workingArea.Left + (workingArea.Width - windowWidth) / 2;
+            int windowY = workingArea.Top + (workingArea.Height - windowHeight) / 2;
+
+            // Set new window bounds
+            this.SetBounds(windowX, windowY, windowWidth, windowHeight);
+        }
+
+        private void StartCapture()
+        {
+            this.Hide();
+            using (var captureForm = new CaptureForm())
+            {
+                if (captureForm.ShowDialog() == DialogResult.OK)
+                {
+                    capturedImage = captureForm.CapturedImage;
+                    UpdatePictureBox(capturedImage);
+                    Clipboard.SetImage(capturedImage);
+
+                    // Clear annotations and reset undo/redo manager
+                    annotations.Clear();
+                    undoRedoManager = new UndoRedoManager();
+                    UpdateUndoRedoButtons();
+
+                    // Adjust window size before showing
+                    AdjustWindowSizeToImage();
+                    this.Show();
+                    this.Activate(); // Ensure window comes to front
+
+                    // Update the dateTimeLabel with the current date and time
+                    dateTimeLabel.Text = $"Captured on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+
+                    // Invalidate the PictureBox to ensure it redraws without old annotations
+                    pictureBox.Invalidate();
+                }
+                else
+                {
+                    this.Show();
+                }
+            }
+        }
+
+        private void NewCapture_Click(object sender, EventArgs e)
+        {
+            StartCapture();
+        }
+
+        private void Save_Click(object sender, EventArgs e)
+        {
+            if (capturedImage == null) return;
+
+            using (SaveFileDialog saveDialog = new SaveFileDialog())
+            {
+                saveDialog.Filter = "PNG Image|*.png|JPEG Image|*.jpg|Bitmap Image|*.bmp";
+                saveDialog.Title = "Save Screenshot";
+                saveDialog.FileName = $"Screenshot_{DateTime.Now:yyyyMMdd_HHmmss}";
+
+                if (saveDialog.ShowDialog() == DialogResult.OK)
+                {
+                    ImageFormat format = ImageFormat.Png;
+                    string ext = System.IO.Path.GetExtension(saveDialog.FileName).ToLower();
+                    switch (ext)
+                    {
+                        case ".jpg":
+                            format = ImageFormat.Jpeg;
+                            break;
+                        case ".bmp":
+                            format = ImageFormat.Bmp;
+                            break;
+                    }
+
+                    capturedImage.Save(saveDialog.FileName, format);
+                }
+            }
+        }
+
+        private void Copy_Click(object sender, EventArgs e)
+        {
+            if (capturedImage != null)
+            {
+                Clipboard.SetImage(capturedImage);
+            }
+        }
+
+        private void Annotate_Click(object sender, EventArgs e)
+        {
+            isAnnotating = !isAnnotating;
+            annotateButton.Checked = isAnnotating;
+            this.Cursor = isAnnotating ? Cursors.Cross : Cursors.Default;
+        }
+
+        private void Exit_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        private void MainForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Control && e.KeyCode == Keys.Z) // Ctrl+Z for Undo
+            {
+                UndoButton_Click(sender, e);
+            }
+            else if (e.Control && e.KeyCode == Keys.Y) // Ctrl+Y for Redo
+            {
+                RedoButton_Click(sender, e);
+            }
+        }
+
+        private void PictureBox_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (isAnnotating)
+            {
+                isDrawingAnnotation = true;
+                annotationStart = e.Location;
+            }
+        }
+
+        private void PictureBox_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (isDrawingAnnotation)
+            {
+                int x = Math.Min(annotationStart.X, e.X);
+                int y = Math.Min(annotationStart.Y, e.Y);
+                int width = Math.Abs(e.X - annotationStart.X);
+                int height = Math.Abs(e.Y - annotationStart.Y);
+
+                selectionRect = new Rectangle(x, y, width, height);
+                pictureBox.Invalidate();
+            }
+        }
+
+        private void PictureBox_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (isDrawingAnnotation)
+            {
+                isDrawingAnnotation = false;
+                if (selectionRect.Width > 0 && selectionRect.Height > 0)
+                {
+                    var addAnnotationCommand = new AddAnnotationCommand(annotations, selectionRect);
+                    undoRedoManager.ExecuteCommand(addAnnotationCommand);
+
+                    RedrawAnnotations(); // Redraw annotations instead of drawing directly on capturedImage
+                    pictureBox.Invalidate(); // Refresh the PictureBox to reflect changes
+                    UpdateUndoRedoButtons(); // Update the state of the buttons
+
+                    // Copy the updated image to the clipboard
+                    CopyImageToClipboard();
+                }
+            }
+        }
+
+        private void PictureBox_Paint(object sender, PaintEventArgs e)
+        {
+            if (capturedImage != null)
+            {
+                e.Graphics.DrawImage(capturedImage, Point.Empty);
+            }
+
+            if (isDrawingAnnotation && selectionRect.Width > 0 && selectionRect.Height > 0)
+            {
+                using (Pen pen = new Pen(Color.Red, 2))
+                {
+                    e.Graphics.DrawRectangle(pen, selectionRect);
+                }
+            }
+
+            // Draw existing annotations
+            using (Pen pen = new Pen(Color.Red, 2))
+            {
+                foreach (var annotation in annotations)
+                {
+                    e.Graphics.DrawRectangle(pen, annotation);
+                }
+            }
+        }
+
+        private void UndoButton_Click(object sender, EventArgs e)
+        {
+            undoRedoManager.Undo();
+            RedrawAnnotations();
+            pictureBox.Invalidate(); // Refresh the PictureBox to reflect changes
+            UpdateUndoRedoButtons(); // Update the state of the buttons
+
+            // Copy the updated image to the clipboard
+            CopyImageToClipboard();
+        }
+
+        private void RedoButton_Click(object sender, EventArgs e)
+        {
+            undoRedoManager.Redo();
+            RedrawAnnotations();
+            pictureBox.Invalidate(); // Refresh the PictureBox to reflect changes
+            UpdateUndoRedoButtons(); // Update the state of the buttons
+
+            // Copy the updated image to the clipboard
+            CopyImageToClipboard();
+        }
+        private void UpdateUndoRedoButtons()
+        {
+            undoButton.Enabled = undoRedoManager.CanUndo;
+            redoButton.Enabled = undoRedoManager.CanRedo;
+            clearAllButton.Enabled = annotations.Count > 0;
+        }
+        private void RedrawAnnotations()
+        {
+            if (capturedImage == null) return;
+
+            // Create a copy of the original captured image
+            Image imageCopy = new Bitmap(capturedImage);
+
+            using (Graphics g = Graphics.FromImage(imageCopy))
+            {
+                foreach (var annotation in annotations)
+                {
+                    g.DrawRectangle(new Pen(Color.Red, 2), annotation);
+                }
+            }
+
+            // Update the PictureBox with the new image
+            pictureBox.Image = imageCopy;
+        }
+        private void CopyImageToClipboard()
+        {
+            if (capturedImage == null) return;
+
+            // Create a copy of the original captured image
+            Image imageCopy = new Bitmap(capturedImage);
+
+            using (Graphics g = Graphics.FromImage(imageCopy))
+            {
+                foreach (var annotation in annotations)
+                {
+                    g.DrawRectangle(new Pen(Color.Red, 2), annotation);
+                }
+            }
+
+            // Copy the updated image to the clipboard
+            Clipboard.SetImage(imageCopy);
+        }
+        private void ClearAllButton_Click(object sender, EventArgs e)
+        {
+            if (annotations.Count > 0)
+            {
+                annotations.Clear();
+                undoRedoManager = new UndoRedoManager(); // Reset the undo/redo manager
+                pictureBox.Invalidate(); // Refresh the PictureBox to reflect changes
+                UpdateUndoRedoButtons(); // Update the state of the buttons
+
+                // Copy the updated image to the clipboard
+                CopyImageToClipboard();
+            }
+        }
+    }
+
+    public class CaptureForm : Form
+    {
+        private Point startPoint;
+        private Rectangle selectionRect;
+        private bool isDragging = false;
+        public Image CapturedImage { get; private set; }
+
+        public CaptureForm()
+        {
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.WindowState = FormWindowState.Maximized;
+            this.BackColor = Color.Black;
+            this.Opacity = 0.5;
+            this.Cursor = Cursors.Cross;
+            this.DoubleBuffered = true;
+            this.TopMost = true;
+
+            this.MouseDown += CaptureForm_MouseDown;
+            this.MouseMove += CaptureForm_MouseMove;
+            this.MouseUp += CaptureForm_MouseUp;
+            this.Paint += CaptureForm_Paint;
+            this.KeyDown += CaptureForm_KeyDown;
+        }
+
+        private void CaptureForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape)
+            {
+                this.DialogResult = DialogResult.Cancel;
+                this.Close();
+            }
+        }
+
+        private void CaptureForm_MouseDown(object sender, MouseEventArgs e)
+        {
+            isDragging = true;
+            startPoint = e.Location;
+            selectionRect = new Rectangle();
+        }
+
+        private void CaptureForm_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (isDragging)
+            {
+                int x = Math.Min(startPoint.X, e.X);
+                int y = Math.Min(startPoint.Y, e.Y);
+                int width = Math.Abs(e.X - startPoint.X);
+                int height = Math.Abs(e.Y - startPoint.Y);
+
+                selectionRect = new Rectangle(x, y, width, height);
+                this.Invalidate();
+            }
+        }
+
+        private void CaptureForm_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (isDragging)
+            {
+                isDragging = false;
+                if (selectionRect.Width > 0 && selectionRect.Height > 0)
+                {
+                    // Hide the form before capturing to avoid capturing the overlay
+                    this.Hide();
+                    System.Threading.Thread.Sleep(100); // Give Windows time to redraw
+                    CaptureScreen();
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
+                }
+            }
+        }
+
+        private void CaptureForm_Paint(object sender, PaintEventArgs e)
+        {
+            if (selectionRect.Width > 0 && selectionRect.Height > 0)
+            {
+                using (Pen pen = new Pen(Color.DeepSkyBlue, 2))
+                {
+                    e.Graphics.DrawRectangle(pen, selectionRect);
+
+                    // Draw size indicator
+                    string sizeText = $"{selectionRect.Width} x {selectionRect.Height}";
+                    using (Font font = new Font("Arial", 10))
+                    using (SolidBrush brush = new SolidBrush(Color.White))
+                    using (var bgBrush = new SolidBrush(Color.FromArgb(128, Color.Black)))
+                    {
+                        var textSize = e.Graphics.MeasureString(sizeText, font);
+                        var textRect = new RectangleF(
+                            selectionRect.X,
+                            selectionRect.Y - textSize.Height - 5,
+                            textSize.Width + 10,
+                            textSize.Height + 5
+                        );
+
+                        e.Graphics.FillRectangle(bgBrush, textRect);
+                        e.Graphics.DrawString(sizeText, font, brush,
+                            selectionRect.X + 5,
+                            selectionRect.Y - textSize.Height - 3);
+                    }
+                }
+            }
+        }
+
+        private void CaptureScreen()
+        {
+            try
+            {
+                using (Bitmap bitmap = new Bitmap(selectionRect.Width, selectionRect.Height))
+                {
+                    using (Graphics g = Graphics.FromImage(bitmap))
+                    {
+                        g.CopyFromScreen(selectionRect.Location, Point.Empty, selectionRect.Size);
+                    }
+                    CapturedImage = new Bitmap(bitmap);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error capturing screenshot: {ex.Message}", "Capture Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+
+    public class CustomToolStripRenderer : ToolStripProfessionalRenderer
+    {
+        public CustomToolStripRenderer() : base(new CustomColorTable())
+        {
+        }
+
+        protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
+        {
+            if (e.Item is ToolStripButton button)
+            {
+                Rectangle bounds = new Rectangle(Point.Empty, e.Item.Size);
+
+                // Draw modern button background with rounded corners
+                if (button.Selected || button.Checked)
+                {
+                    using (GraphicsPath path = CreateRoundedRectangle(bounds, 4))
+                    using (SolidBrush brush = new SolidBrush(Color.FromArgb(30, 144, 255)))
+                    {
+                        e.Graphics.FillPath(brush, path);
+                    }
+                }
+                else if (button.Pressed)
+                {
+                    using (GraphicsPath path = CreateRoundedRectangle(bounds, 4))
+                    using (SolidBrush brush = new SolidBrush(Color.FromArgb(0, 120, 215)))
+                    {
+                        e.Graphics.FillPath(brush, path);
+                    }
+                }
+            }
+            else
+            {
+                base.OnRenderButtonBackground(e);
+            }
+        }
+
+        private GraphicsPath CreateRoundedRectangle(Rectangle bounds, int radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            path.AddArc(bounds.X, bounds.Y, radius * 2, radius * 2, 180, 90);
+            path.AddArc(bounds.Right - radius * 2, bounds.Y, radius * 2, radius * 2, 270, 90);
+            path.AddArc(bounds.Right - radius * 2, bounds.Bottom - radius * 2, radius * 2, radius * 2, 0, 90);
+            path.AddArc(bounds.X, bounds.Bottom - radius * 2, radius * 2, radius * 2, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+
+
+    public class CustomColorTable : ProfessionalColorTable
+    {
+        // Modern light theme colors
+        private Color primaryColor = Color.White;           // White background
+        private Color hoverColor = Color.FromArgb(242, 242, 242);    // Light gray for hover
+        private Color accentColor = Color.FromArgb(0, 120, 215);     // Blue accent for selections
+
+        public override Color ToolStripGradientBegin => primaryColor;
+        public override Color ToolStripGradientMiddle => primaryColor;
+        public override Color ToolStripGradientEnd => primaryColor;
+        public override Color ButtonSelectedHighlight => hoverColor;
+        public override Color ButtonSelectedHighlightBorder => accentColor;
+        public override Color ButtonSelectedBorder => accentColor;
+        public override Color ButtonCheckedHighlight => hoverColor;
+        public override Color ButtonCheckedHighlightBorder => accentColor;
+        public override Color ButtonPressedBorder => accentColor;
+        public override Color MenuItemSelected => hoverColor;
+        public override Color MenuItemBorder => Color.FromArgb(229, 229, 229);
+        public override Color MenuBorder => Color.FromArgb(229, 229, 229);
+    }
+    public class AddAnnotationCommand : ICommand
+    {
+        private List<Rectangle> _annotations;
+        private Rectangle _annotation;
+
+        public AddAnnotationCommand(List<Rectangle> annotations, Rectangle annotation)
+        {
+            _annotations = annotations;
+            _annotation = annotation;
+        }
+
+        public void Execute()
+        {
+            _annotations.Add(_annotation);
+        }
+
+        public void Undo()
+        {
+            _annotations.Remove(_annotation);
+        }
+    }
+    public class UndoRedoManager
+    {
+        private Stack<ICommand> _undoStack = new Stack<ICommand>();
+        private Stack<ICommand> _redoStack = new Stack<ICommand>();
+
+        public bool CanUndo => _undoStack.Count > 0;
+        public bool CanRedo => _redoStack.Count > 0;
+
+        public void ExecuteCommand(ICommand command)
+        {
+            command.Execute();
+            _undoStack.Push(command);
+            _redoStack.Clear();
+        }
+
+        public void Undo()
+        {
+            if (CanUndo)
+            {
+                ICommand command = _undoStack.Pop();
+                command.Undo();
+                _redoStack.Push(command);
+            }
+        }
+
+        public void Redo()
+        {
+            if (CanRedo)
+            {
+                ICommand command = _redoStack.Pop();
+                command.Execute();
+                _undoStack.Push(command);
+            }
+        }
+    }
+    public interface ICommand
+    {
+        void Execute();
+        void Undo();
+    }
+
+    
+}
