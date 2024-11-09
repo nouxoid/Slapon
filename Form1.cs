@@ -21,7 +21,7 @@ namespace CapSnip
         private List<Annotation> annotations = new List<Annotation>();
         private bool isDrawingAnnotation = false;
         private Panel centeringPanel;
-
+        private Annotation selectedAnnotation = null;
         private ToolStripButton highlighterButton;
         private AnnotationType currentAnnotationType = AnnotationType.Rectangle;
 
@@ -39,6 +39,36 @@ namespace CapSnip
         private System.Windows.Forms.TrackBar opacityTrackBar;
         private System.Windows.Forms.Label opacityLabel;
         private int defaultOpacity = 50;
+
+        private enum AnnotationType
+        {
+            Rectangle,
+            Highlighter
+        }
+
+        public class Annotation
+        {
+            public Rectangle Rectangle { get; }
+            public Color Color { get; }
+            public AnnotationType Type { get; }
+            public float Opacity { get; set; }
+
+            public Annotation(Rectangle rectangle, Color color, AnnotationType type, float opacity)
+            {
+                Rectangle = rectangle;
+                Color = color;
+                Type = type;
+                Opacity = opacity;
+            }
+        }
+
+
+        private enum Tool
+        {
+            Select,
+            Rectangle,
+            Highlighter
+        }
 
         public MainForm()
         {
@@ -368,8 +398,21 @@ namespace CapSnip
             toolStrip.Items.AddRange(leftGroup);
             toolStrip.Items.Add(new ToolStripSeparator());
             toolStrip.Items.AddRange(middleGroup);
+            //Image = Image.FromFile("move.png"); // Add appropriate icon image
             toolStrip.Items.Add(new ToolStripSeparator());
-            
+
+            var selectButton = new ToolStripButton
+            {
+                Text = "Select",
+                 
+            };
+            selectButton.Click += (s, e) =>
+            {
+                currentTool = Tool.Select;
+                // Update button states
+            };
+            toolStrip.Items.Add(selectButton);
+
 
             // Push remaining items to right
             var spring = new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right };
@@ -436,6 +479,23 @@ namespace CapSnip
             {
                 MessageBox.Show("Error adding opacity controls: " + ex.Message);
             }
+
+            opacityTrackBar.ValueChanged += (s, e) =>
+            {
+                float newOpacity = opacityTrackBar.Value / 100f;
+
+                if (isDrawingAnnotation && currentAnnotationType == AnnotationType.Highlighter)
+                {
+                    // Update preview when drawing
+                    pictureBox.Invalidate();
+                }
+                else if (selectedAnnotation != null)
+                {
+                    // Update selected annotation's opacity
+                    selectedAnnotation.Opacity = newOpacity;
+                    pictureBox.Invalidate();
+                }
+            };
         }
 
         private void CenterPictureBox()
@@ -664,6 +724,23 @@ namespace CapSnip
             }
         }
 
+        private void HandleSelection(Point mousePoint)
+        {
+            // Find the most recently created annotation that contains the click point
+            selectedAnnotation = annotations
+                .Where(a => a.Type == AnnotationType.Highlighter && a.Rectangle.Contains(mousePoint))
+                .LastOrDefault();
+
+            if (selectedAnnotation != null)
+            {
+                // Show and update the opacity trackbar to match the selected highlight
+                opacityTrackBar.Value = (int)(selectedAnnotation.Opacity * 100);
+                opacityTrackBar.Visible = true;
+                opacityLabel.Visible = true;
+            }
+
+            pictureBox.Invalidate(); // Redraw to show selection state
+        }
         private void Copy_Click(object sender, EventArgs e)
         {
             if (capturedImage != null)
@@ -700,10 +777,19 @@ namespace CapSnip
 
         private void PictureBox_MouseDown(object sender, MouseEventArgs e)
         {
-            if (isAnnotating)
+            if (e.Button == MouseButtons.Left)
             {
-                isDrawingAnnotation = true;
-                annotationStart = e.Location;
+                if (currentTool == Tool.Select)
+                {
+                    HandleSelection(e.Location);
+                }
+                else
+                {
+                    isDrawingAnnotation = true;
+                    startPoint = e.Location;
+                    selectionRect = new Rectangle(startPoint, Size.Empty);
+                    selectedAnnotation = null; // Clear selection when starting new annotation
+                }
             }
         }
 
@@ -758,39 +844,39 @@ namespace CapSnip
                 e.Graphics.DrawImage(capturedImage, Point.Empty);
             }
 
-            // Enable high quality rendering
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
             e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
 
-            // Draw the current selection rectangle
-            if (isDrawingAnnotation && selectionRect.Width > 0 && selectionRect.Height > 0)
-            {
-                if (currentAnnotationType == AnnotationType.Highlighter)
-                {
-                    DrawSoftHighlight(e.Graphics, selectionRect, currentColor);
-                }
-                else
-                {
-                    using (Pen pen = new Pen(currentColor, 2))
-                    {
-                        e.Graphics.DrawRectangle(pen, selectionRect);
-                    }
-                }
-            }
-
-            // Draw existing annotations
+            // Draw existing annotations with their stored opacity values
             foreach (var annotation in annotations)
             {
                 if (annotation.Type == AnnotationType.Highlighter)
                 {
-                    DrawSoftHighlight(e.Graphics, annotation.Rectangle, annotation.Color);
+                    DrawSoftHighlight(e.Graphics, annotation.Rectangle, annotation.Color, annotation.Opacity);
                 }
                 else
                 {
                     using (Pen pen = new Pen(annotation.Color, 2))
                     {
                         e.Graphics.DrawRectangle(pen, annotation.Rectangle);
+                    }
+                }
+            }
+
+            // Draw the current selection rectangle with current opacity
+            if (isDrawingAnnotation && selectionRect.Width > 0 && selectionRect.Height > 0)
+            {
+                if (currentAnnotationType == AnnotationType.Highlighter)
+                {
+                    float currentOpacity = opacityTrackBar.Value / 100f;
+                    DrawSoftHighlight(e.Graphics, selectionRect, currentColor, currentOpacity);
+                }
+                else
+                {
+                    using (Pen pen = new Pen(currentColor, 2))
+                    {
+                        e.Graphics.DrawRectangle(pen, selectionRect);
                     }
                 }
             }
@@ -896,7 +982,7 @@ namespace CapSnip
                     {
                         if (annotation.Type == AnnotationType.Highlighter)
                         {
-                            DrawSoftHighlight(g, annotation.Rectangle, annotation.Color);
+                            DrawSoftHighlight(g, annotation.Rectangle, annotation.Color, annotation.Opacity);
                         }
                         else
                         {
@@ -913,39 +999,27 @@ namespace CapSnip
             }
         }
 
-        public enum AnnotationType
-        {
-            Rectangle,
-            Highlighter
-        }
+     
+
+        private Tool currentTool = Tool.Rectangle;
 
         // Update your DrawSoftHighlight method to use the trackbar value
-        private void DrawSoftHighlight(Graphics g, Rectangle rect, Color color, float opacity = -1)
+        private void DrawSoftHighlight(Graphics g, Rectangle rect, Color color, float opacity)
         {
-            // If no opacity specified, use the trackbar value
-            if (opacity == -1)
-            {
-                opacity = opacityTrackBar.Value / 100f;
-            }
-
             using (GraphicsPath path = new GraphicsPath())
             {
                 path.AddRectangle(rect);
-
                 using (PathGradientBrush pgBrush = new PathGradientBrush(path))
                 {
-                    // Adjust center and surround colors based on opacity
-                    pgBrush.CenterColor = Color.FromArgb((int)(160 * opacity), color);
-                    Color[] surroundColors = new Color[] { Color.FromArgb((int)(100 * opacity), color) };
+                    // Use the specific opacity value for this highlight
+                    int centerAlpha = (int)(160 * opacity);
+                    int surroundAlpha = (int)(100 * opacity);
+
+                    pgBrush.CenterColor = Color.FromArgb(centerAlpha, color);
+                    Color[] surroundColors = new Color[] { Color.FromArgb(surroundAlpha, color) };
                     pgBrush.SurroundColors = surroundColors;
                     pgBrush.FocusScales = new PointF(0.95f, 0.85f);
-
                     g.FillPath(pgBrush, path);
-                }
-
-                using (Pen edgePen = new Pen(Color.FromArgb((int)(40 * opacity), color), 1))
-                {
-                    g.DrawPath(edgePen, path);
                 }
             }
         }
@@ -1187,24 +1261,10 @@ namespace CapSnip
         }
     }
 
-    
+
 
     // Modify your Annotation class to handle variable opacity
-    public class Annotation
-    {
-        public Rectangle Rectangle { get; set; }
-        public Color Color { get; set; }
-        public AnnotationType Type { get; set; }
-        public float Opacity { get; set; }
-
-        public Annotation(Rectangle rectangle, Color color, AnnotationType type, float opacity)
-        {
-            Rectangle = rectangle;
-            Color = color;
-            Type = type;
-            Opacity = type == AnnotationType.Highlighter ? opacity : 1f;
-        }
-    }
+    
     public class UndoRedoManager
     {
         private Stack<ICommand> _undoStack = new Stack<ICommand>();
