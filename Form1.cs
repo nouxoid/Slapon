@@ -10,14 +10,12 @@ namespace CapSnip
 {
     public partial class MainForm : Form
     {
-        private bool isDragging;
+        
         private Point startPoint;
         private Rectangle selectionRect;
         private Image capturedImage;
         private bool isAnnotating = false;
         private Point annotationStart;
-        //private List<Rectangle> annotations = new List<Rectangle>();
-        // Change the annotations list to store Annotation objects instead of Rectangles
         private List<Annotation> annotations = new List<Annotation>();
         private bool isDrawingAnnotation = false;
         private Panel centeringPanel;
@@ -48,10 +46,11 @@ namespace CapSnip
         private int defaultOpacity = 50;
 
         private System.Windows.Forms.TrackBar thicknessTrackBar;
-        private Label thicknessLabel;
-        
+        private System.Windows.Forms.Label thicknessLabel;
+        private bool isDragging = false;  // Add this field declaration
 
-        
+
+
 
         public enum AnnotationType
         {
@@ -469,8 +468,8 @@ namespace CapSnip
                 Visible = false
             };
 
-            // Create the trackbar with fully qualified name
-            thicknessTrackBar = new System.Windows.Forms.TrackBar();
+            // Create the trackbar once with all properties
+            thicknessTrackBar = new System.Windows.Forms.TrackBar
             {
                 Minimum = 1,
                 Maximum = 10,
@@ -1103,7 +1102,7 @@ namespace CapSnip
                     }
                     else
                     {
-                        isDragging = true;
+                        this.isDragging = true;
                     }
 
                     // Show appropriate controls based on annotation type
@@ -1127,7 +1126,7 @@ namespace CapSnip
             {
                 ResizeSelectedAnnotation(e.Location);
             }
-            else if (isDragging && selectedAnnotation != null)
+            else if (this.isDragging && selectedAnnotation != null)
             {
                 MoveSelectedAnnotation(e.Location);
             }
@@ -1302,7 +1301,8 @@ namespace CapSnip
 
         private void SetupThicknessControl()
         {
-            thicknessLabel = new Label
+            // Fully qualify Label
+            thicknessLabel = new System.Windows.Forms.Label
             {
                 Text = "Thickness:",
                 AutoSize = true,
@@ -1317,10 +1317,12 @@ namespace CapSnip
                 Width = 100,
                 Visible = false,
                 TickFrequency = 1,
-                TickStyle = TickStyle.Both
+                TickStyle = System.Windows.Forms.TickStyle.Both  // Fully qualify TickStyle
             };
 
-            TrackBar.ValueChanged += (s, e) =>
+            // Fix the event handler - you had TrackBar.ValueChanged which is incorrect
+            // It should be thicknessTrackBar.ValueChanged
+            thicknessTrackBar.ValueChanged += (s, e) =>
             {
                 if (selectedAnnotation != null && selectedAnnotation.Type == AnnotationType.Rectangle)
                 {
@@ -1340,9 +1342,13 @@ namespace CapSnip
                 }
             };
 
-            // Add to toolstrip similarly to opacity controls
-        }
+            // Add to toolstrip
+            var labelHost = new System.Windows.Forms.ToolStripControlHost(thicknessLabel);
+            var trackBarHost = new System.Windows.Forms.ToolStripControlHost(thicknessTrackBar);
 
+            toolStrip1.Items.Add(labelHost);
+            toolStrip1.Items.Add(trackBarHost);
+        }
         // Update your Highlighter_Click method to show/hide opacity controls
         private void Highlighter_Click(object sender, EventArgs e)
         {
@@ -1514,7 +1520,8 @@ namespace CapSnip
     {
         private Point startPoint;
         private Rectangle selectionRect;
-        
+        private bool isDragging = false;  // Add this line
+
         public Image CapturedImage { get; private set; }
 
         public CaptureForm()
@@ -1545,7 +1552,7 @@ namespace CapSnip
 
         private void CaptureForm_MouseDown(object sender, MouseEventArgs e)
         {
-            isDragging = true;
+            this.isDragging = true;
             startPoint = e.Location;
             selectionRect = new Rectangle();
         }
@@ -1566,9 +1573,9 @@ namespace CapSnip
 
         private void CaptureForm_MouseUp(object sender, MouseEventArgs e)
         {
-            if (isDragging)
+            if (this.isDragging)
             {
-                isDragging = false;
+                this.isDragging = false;
                 if (selectionRect.Width > 0 && selectionRect.Height > 0)
                 {
                     // Hide the form before capturing to avoid capturing the overlay
