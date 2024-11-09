@@ -4,6 +4,7 @@ using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using System.Drawing.Imaging;
 using static CapSnip.MainForm;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace CapSnip
 {
@@ -34,9 +35,15 @@ namespace CapSnip
         private ToolStripDropDownButton colorPickerButton;
         private const int COLOR_BUTTON_SIZE = 20;
 
+        // Add these at the class level with your other private fields
+        private System.Windows.Forms.TrackBar opacityTrackBar;
+        private System.Windows.Forms.Label opacityLabel;
+        private int defaultOpacity = 50;
+
         public MainForm()
         {
             InitializeComponent();
+            SetupOpacityControls();
             SetupUI();
             this.Load += MainForm_Load;
             this.Resize += MainForm_Resize;
@@ -386,6 +393,51 @@ namespace CapSnip
             dateTimeLabel.Location = new Point((this.ClientSize.Width - dateTimeLabel.Width) / 2, this.ClientSize.Height - 45);
         }
 
+        private void SetupOpacityControls()
+        {
+            // Debug check to ensure toolStrip exists
+            if (toolStrip == null)
+            {
+                MessageBox.Show("ToolStrip is null!");
+                return;
+            }
+
+            opacityLabel = new System.Windows.Forms.Label
+            {
+                Text = "Opacity:",
+                AutoSize = true,
+                Visible = false
+            };
+
+            opacityTrackBar = new System.Windows.Forms.TrackBar
+            {
+                Minimum = 10,
+                Maximum = 100,
+                Value = defaultOpacity,
+                Width = 100,
+                Visible = false,
+                TickFrequency = 10,
+                TickStyle = System.Windows.Forms.TickStyle.Both
+            };
+
+            // Try adding to toolStrip with more explicit control
+            try
+            {
+                ToolStripControlHost labelHost = new ToolStripControlHost(opacityLabel);
+                ToolStripControlHost trackBarHost = new ToolStripControlHost(opacityTrackBar);
+
+                toolStrip.Items.Add(labelHost);
+                toolStrip.Items.Add(trackBarHost);
+
+                // Force a refresh of the toolStrip
+                toolStrip.Invalidate();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error adding opacity controls: " + ex.Message);
+            }
+        }
+
         private void CenterPictureBox()
         {
             if (pictureBox.Image != null)
@@ -420,6 +472,8 @@ namespace CapSnip
             pictureBox.Size = newImage.Size;
             CenterPictureBox();
         }
+
+        
 
         private void AdjustWindowSizeToImage()
         {
@@ -668,6 +722,7 @@ namespace CapSnip
         }
 
 
+        // Update your PictureBox_MouseUp method to include opacity
         private void PictureBox_MouseUp(object sender, MouseEventArgs e)
         {
             if (isDrawingAnnotation)
@@ -678,7 +733,8 @@ namespace CapSnip
                     var annotation = new Annotation(
                         selectionRect,
                         currentColor,
-                        currentAnnotationType
+                        currentAnnotationType,
+                        currentAnnotationType == AnnotationType.Highlighter ? opacityTrackBar.Value / 100f : 1f
                     );
 
                     var addAnnotationCommand = new AddAnnotationCommand(
@@ -740,13 +796,24 @@ namespace CapSnip
             }
         }
 
+        // Update your Highlighter_Click method to show/hide opacity controls
         private void Highlighter_Click(object sender, EventArgs e)
         {
             isAnnotating = !isAnnotating;
             highlighterButton.Checked = isAnnotating;
-            annotateButton.Checked = false;  // Uncheck rectangle button
+            annotateButton.Checked = false;
             currentAnnotationType = AnnotationType.Highlighter;
             this.Cursor = isAnnotating ? Cursors.Cross : Cursors.Default;
+
+            // Add debug message to verify this is being called
+            Console.WriteLine("Highlighter clicked, setting opacity controls visible: " + isAnnotating);
+
+            // Show/hide opacity controls
+            if (opacityLabel != null && opacityTrackBar != null)
+            {
+                opacityLabel.Visible = isAnnotating;
+                opacityTrackBar.Visible = isAnnotating;
+            }
         }
 
         private void UndoButton_Click(object sender, EventArgs e)
@@ -790,7 +857,7 @@ namespace CapSnip
                     {
                         // Create semi-transparent brush for highlighter effect
                         using (SolidBrush brush = new SolidBrush(Color.FromArgb(
-                            (int)(500 * annotation.Opacity),
+                            (int)(25 * annotation.Opacity),
                             annotation.Color)))
                         {
                             g.FillRectangle(brush, annotation.Rectangle);
@@ -852,31 +919,31 @@ namespace CapSnip
             Highlighter
         }
 
-        private void DrawSoftHighlight(Graphics g, Rectangle rect, Color color)
+        // Update your DrawSoftHighlight method to use the trackbar value
+        private void DrawSoftHighlight(Graphics g, Rectangle rect, Color color, float opacity = -1)
         {
-            // Create a path with slightly rounded corners for a softer look
+            // If no opacity specified, use the trackbar value
+            if (opacity == -1)
+            {
+                opacity = opacityTrackBar.Value / 100f;
+            }
+
             using (GraphicsPath path = new GraphicsPath())
             {
                 path.AddRectangle(rect);
 
-                // Create gradient brush for a more natural highlight look
                 using (PathGradientBrush pgBrush = new PathGradientBrush(path))
                 {
-                    // Center color (more opaque)
-                    pgBrush.CenterColor = Color.FromArgb(160, color);
-
-                    // Edge color (more transparent)
-                    Color[] surroundColors = new Color[] { Color.FromArgb(100, color) };
+                    // Adjust center and surround colors based on opacity
+                    pgBrush.CenterColor = Color.FromArgb((int)(160 * opacity), color);
+                    Color[] surroundColors = new Color[] { Color.FromArgb((int)(100 * opacity), color) };
                     pgBrush.SurroundColors = surroundColors;
-
-                    // Slightly offset the focus point for a more natural look
                     pgBrush.FocusScales = new PointF(0.95f, 0.85f);
 
                     g.FillPath(pgBrush, path);
                 }
 
-                // Add a very subtle edge
-                using (Pen edgePen = new Pen(Color.FromArgb(40, color), 1))
+                using (Pen edgePen = new Pen(Color.FromArgb((int)(40 * opacity), color), 1))
                 {
                     g.DrawPath(edgePen, path);
                 }
@@ -1120,19 +1187,22 @@ namespace CapSnip
         }
     }
 
+    
+
+    // Modify your Annotation class to handle variable opacity
     public class Annotation
     {
         public Rectangle Rectangle { get; set; }
         public Color Color { get; set; }
         public AnnotationType Type { get; set; }
-        public float Opacity { get; private set; }
+        public float Opacity { get; set; }
 
-        public Annotation(Rectangle rectangle, Color color, AnnotationType type)
+        public Annotation(Rectangle rectangle, Color color, AnnotationType type, float opacity)
         {
             Rectangle = rectangle;
             Color = color;
             Type = type;
-            Opacity = type == AnnotationType.Highlighter ? 0.5f : 1f;
+            Opacity = type == AnnotationType.Highlighter ? opacity : 1f;
         }
     }
     public class UndoRedoManager
