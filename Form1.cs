@@ -751,19 +751,28 @@ namespace CapSnip
         {
             if (capturedImage == null) return;
 
-            // Create a copy of the original captured image
-            Image imageCopy = new Bitmap(capturedImage);
-
-            using (Graphics g = Graphics.FromImage(imageCopy))
+            // Create a new bitmap with the same dimensions as the captured image
+            using (Bitmap imageCopy = new Bitmap(capturedImage.Width, capturedImage.Height))
             {
-                foreach (var annotation in annotations)
+                // Create graphics from the new bitmap
+                using (Graphics g = Graphics.FromImage(imageCopy))
                 {
-                    g.DrawRectangle(new Pen(Color.Red, 2), annotation.Rectangle);
-                }
-            }
+                    // First draw the original captured image
+                    g.DrawImage(capturedImage, Point.Empty);
 
-            // Copy the updated image to the clipboard
-            Clipboard.SetImage(imageCopy);
+                    // Then draw all annotations
+                    foreach (var annotation in annotations)
+                    {
+                        using (Pen pen = new Pen(annotation.Color, 2))
+                        {
+                            g.DrawRectangle(pen, annotation.Rectangle);
+                        }
+                    }
+                }
+
+                // Copy the composite image (with annotations) to the clipboard
+                Clipboard.SetImage(imageCopy);
+            }
         }
         private void ClearAllButton_Click(object sender, EventArgs e)
         {
