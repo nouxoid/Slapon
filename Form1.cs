@@ -40,6 +40,36 @@ namespace CapSnip
         private System.Windows.Forms.Label opacityLabel;
         private int defaultOpacity = 50;
 
+        private enum AnnotationType
+        {
+            Rectangle,
+            Highlighter
+        }
+
+        public class Annotation
+        {
+            public Rectangle Rectangle { get; }
+            public Color Color { get; }
+            public AnnotationType Type { get; }
+            public float Opacity { get; set; }
+
+            public Annotation(Rectangle rectangle, Color color, AnnotationType type, float opacity)
+            {
+                Rectangle = rectangle;
+                Color = color;
+                Type = type;
+                Opacity = opacity;
+            }
+        }
+
+
+        private enum Tool
+        {
+            Select,
+            Rectangle,
+            Highlighter
+        }
+
         public MainForm()
         {
             InitializeComponent();
@@ -368,14 +398,13 @@ namespace CapSnip
             toolStrip.Items.AddRange(leftGroup);
             toolStrip.Items.Add(new ToolStripSeparator());
             toolStrip.Items.AddRange(middleGroup);
-            Image = Image.FromFile("move.png"); // Add appropriate icon image
+            //Image = Image.FromFile("move.png"); // Add appropriate icon image
             toolStrip.Items.Add(new ToolStripSeparator());
 
             var selectButton = new ToolStripButton
             {
                 Text = "Select",
-                DisplayStyle = ToolStripItemDisplayStyle.Image,
-                Image = Image.FromFile("move.png") // Add appropriate icon image  
+                 
             };
             selectButton.Click += (s, e) =>
             {
@@ -970,12 +999,7 @@ namespace CapSnip
             }
         }
 
-        private enum Tool
-        {
-            Select,
-            Rectangle,
-            Highlighter
-        }
+     
 
         private Tool currentTool = Tool.Rectangle;
 
@@ -1240,21 +1264,7 @@ namespace CapSnip
 
 
     // Modify your Annotation class to handle variable opacity
-    public class Annotation
-    {
-        public Rectangle Rectangle { get; }
-        public Color Color { get; }
-        public AnnotationType Type { get; }
-        public float Opacity { get; set; }  // Changed to public set
-
-        public Annotation(Rectangle rectangle, Color color, AnnotationType type, float opacity)
-        {
-            Rectangle = rectangle;
-            Color = color;
-            Type = type;
-            Opacity = opacity;
-        }
-    }
+    
     public class UndoRedoManager
     {
         private Stack<ICommand> _undoStack = new Stack<ICommand>();
