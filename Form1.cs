@@ -40,12 +40,11 @@ namespace CapSnip
         private System.Windows.Forms.Label opacityLabel;
         private int defaultOpacity = 50;
 
-        private enum AnnotationType
+        public enum AnnotationType
         {
             Rectangle,
             Highlighter
         }
-
         public class Annotation
         {
             public Rectangle Rectangle { get; }
@@ -787,6 +786,7 @@ namespace CapSnip
                 {
                     isDrawingAnnotation = true;
                     startPoint = e.Location;
+                    annotationStart = e.Location;  // Add this line
                     selectionRect = new Rectangle(startPoint, Size.Empty);
                     selectedAnnotation = null; // Clear selection when starting new annotation
                 }
@@ -797,10 +797,11 @@ namespace CapSnip
         {
             if (isDrawingAnnotation)
             {
-                int x = Math.Min(annotationStart.X, e.X);
-                int y = Math.Min(annotationStart.Y, e.Y);
-                int width = Math.Abs(e.X - annotationStart.X);
-                int height = Math.Abs(e.Y - annotationStart.Y);
+                // Calculate rectangle dimensions based on start point and current position
+                int x = Math.Min(startPoint.X, e.X);
+                int y = Math.Min(startPoint.Y, e.Y);
+                int width = Math.Abs(e.X - startPoint.X);
+                int height = Math.Abs(e.Y - startPoint.Y);
 
                 selectionRect = new Rectangle(x, y, width, height);
                 pictureBox.Invalidate();
