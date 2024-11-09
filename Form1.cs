@@ -568,20 +568,24 @@ namespace CapSnip
                     UpdatePictureBox(capturedImage);
                     Clipboard.SetImage(capturedImage);
 
-                    // Clear annotations and reset undo/redo manager
+                    // Reset tool state
                     annotations.Clear();
                     undoRedoManager = new UndoRedoManager();
                     UpdateUndoRedoButtons();
+                    currentTool = Tool.Rectangle;  // Reset to default tool
+                    currentAnnotationType = AnnotationType.Rectangle;
+                    annotateButton.Checked = false;
+                    highlighterButton.Checked = false;
+                    selectedAnnotation = null;
+                    opacityTrackBar.Visible = false;
+                    opacityLabel.Visible = false;
 
                     // Adjust window size before showing
                     AdjustWindowSizeToImage();
                     this.Show();
-                    this.Activate(); // Ensure window comes to front
+                    this.Activate();
 
-                    // Update the dateTimeLabel with the current date and time
                     dateTimeLabel.Text = $"Captured on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
-
-                    // Invalidate the PictureBox to ensure it redraws without old annotations
                     pictureBox.Invalidate();
                 }
                 else
@@ -727,15 +731,24 @@ namespace CapSnip
         {
             // Find the most recently created annotation that contains the click point
             selectedAnnotation = annotations
-                .Where(a => a.Type == AnnotationType.Highlighter && a.Rectangle.Contains(mousePoint))
+                .Where(a => a.Rectangle.Contains(mousePoint))  // Remove the Type filter to allow all annotations
                 .LastOrDefault();
 
             if (selectedAnnotation != null)
             {
-                // Show and update the opacity trackbar to match the selected highlight
-                opacityTrackBar.Value = (int)(selectedAnnotation.Opacity * 100);
-                opacityTrackBar.Visible = true;
-                opacityLabel.Visible = true;
+                // Show and update opacity controls only for highlighter annotations
+                opacityTrackBar.Visible = selectedAnnotation.Type == AnnotationType.Highlighter;
+                opacityLabel.Visible = selectedAnnotation.Type == AnnotationType.Highlighter;
+                if (selectedAnnotation.Type == AnnotationType.Highlighter)
+                {
+                    opacityTrackBar.Value = (int)(selectedAnnotation.Opacity * 100);
+                }
+            }
+            else
+            {
+                // Hide opacity controls when no annotation is selected
+                opacityTrackBar.Visible = false;
+                opacityLabel.Visible = false;
             }
 
             pictureBox.Invalidate(); // Redraw to show selection state
@@ -750,11 +763,15 @@ namespace CapSnip
 
         private void Annotate_Click(object sender, EventArgs e)
         {
-            isAnnotating = !isAnnotating;
-            annotateButton.Checked = isAnnotating;
-            highlighterButton.Checked = false;  // Uncheck highlighter button
+            currentTool = Tool.Rectangle;
             currentAnnotationType = AnnotationType.Rectangle;
-            this.Cursor = isAnnotating ? Cursors.Cross : Cursors.Default;
+            annotateButton.Checked = true;
+            highlighterButton.Checked = false;
+            this.Cursor = Cursors.Cross;
+
+            // Hide opacity controls for rectangle tool
+            opacityTrackBar.Visible = false;
+            opacityLabel.Visible = false;
         }
 
         private void Exit_Click(object sender, EventArgs e)
@@ -849,7 +866,7 @@ namespace CapSnip
             e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
             e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
 
-            // Draw existing annotations with their stored opacity values
+            // Draw existing annotations
             foreach (var annotation in annotations)
             {
                 if (annotation.Type == AnnotationType.Highlighter)
@@ -863,9 +880,21 @@ namespace CapSnip
                         e.Graphics.DrawRectangle(pen, annotation.Rectangle);
                     }
                 }
+
+                // Draw selection indicator if this annotation is selected
+                if (annotation == selectedAnnotation)
+                {
+                    using (Pen selectionPen = new Pen(Color.FromArgb(128, 0, 120, 215), 1))
+                    {
+                        selectionPen.DashStyle = DashStyle.Dash;
+                        Rectangle selectionBounds = annotation.Rectangle;
+                        selectionBounds.Inflate(2, 2); // Make selection slightly larger
+                        e.Graphics.DrawRectangle(selectionPen, selectionBounds);
+                    }
+                }
             }
 
-            // Draw the current selection rectangle with current opacity
+            // Draw the current selection rectangle
             if (isDrawingAnnotation && selectionRect.Width > 0 && selectionRect.Height > 0)
             {
                 if (currentAnnotationType == AnnotationType.Highlighter)
@@ -886,21 +915,15 @@ namespace CapSnip
         // Update your Highlighter_Click method to show/hide opacity controls
         private void Highlighter_Click(object sender, EventArgs e)
         {
-            isAnnotating = !isAnnotating;
-            highlighterButton.Checked = isAnnotating;
-            annotateButton.Checked = false;
+            currentTool = Tool.Highlighter;
             currentAnnotationType = AnnotationType.Highlighter;
-            this.Cursor = isAnnotating ? Cursors.Cross : Cursors.Default;
+            highlighterButton.Checked = true;
+            annotateButton.Checked = false;
+            this.Cursor = Cursors.Cross;
 
-            // Add debug message to verify this is being called
-            Console.WriteLine("Highlighter clicked, setting opacity controls visible: " + isAnnotating);
-
-            // Show/hide opacity controls
-            if (opacityLabel != null && opacityTrackBar != null)
-            {
-                opacityLabel.Visible = isAnnotating;
-                opacityTrackBar.Visible = isAnnotating;
-            }
+            // Show opacity controls for highlighter tool
+            opacityTrackBar.Visible = true;
+            opacityLabel.Visible = true;
         }
 
         private void UndoButton_Click(object sender, EventArgs e)
