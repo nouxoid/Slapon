@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using System.Drawing.Imaging;
+using static CapSnip.MainForm;
 
 namespace CapSnip
 {
@@ -19,6 +20,9 @@ namespace CapSnip
         private List<Annotation> annotations = new List<Annotation>();
         private bool isDrawingAnnotation = false;
         private Panel centeringPanel;
+
+        private ToolStripButton highlighterButton;
+        private AnnotationType currentAnnotationType = AnnotationType.Rectangle;
 
         private const int WINDOW_PADDING = 100; // Padding around the image
         private const int MIN_WINDOW_WIDTH = 800;
@@ -104,6 +108,14 @@ namespace CapSnip
             //colorPickerButton.Size = new Size(80, 22);
             //colorPickerButton.Text = "Color Picker";
             clearAllButton = new ToolStripButton();
+
+            // Add this in your form initialization
+            highlighterButton = new ToolStripButton();
+            highlighterButton.ForeColor = Color.Black;
+            highlighterButton.Name = "highlighterButton";
+            highlighterButton.Size = new Size(70, 22);
+            highlighterButton.Text = "Highlight";
+            highlighterButton.Click += Highlighter_Click;
             // 
             // clearAllButton
             //
@@ -164,6 +176,7 @@ namespace CapSnip
     
                 // Middle section
                 annotateButton,
+                highlighterButton,
                 undoButton,
                 redoButton,
                 clearAllButton,
@@ -340,7 +353,7 @@ namespace CapSnip
         {
             // Add flexible spacing between button groups
             var leftGroup = new ToolStripButton[] { newCaptureButton };
-            var middleGroup = new ToolStripButton[] { annotateButton, undoButton, redoButton, clearAllButton };
+            var middleGroup = new ToolStripButton[] { annotateButton,highlighterButton ,undoButton, redoButton, clearAllButton };
             var rightGroup = new ToolStripButton[] { saveButton, copyButton };
 
             // Add spacing between groups
@@ -390,7 +403,14 @@ namespace CapSnip
             }
         }
 
+        private void HighlighterButton_Click(object sender, EventArgs e)
+        {
+            currentAnnotationType = currentAnnotationType == AnnotationType.Rectangle ?
+                AnnotationType.Highlighter : AnnotationType.Rectangle;
 
+            highlighterButton.Checked = currentAnnotationType == AnnotationType.Highlighter;
+            annotateButton.Checked = currentAnnotationType == AnnotationType.Rectangle;
+        }
 
         private void UpdatePictureBox(Image newImage)
         {
@@ -602,6 +622,8 @@ namespace CapSnip
         {
             isAnnotating = !isAnnotating;
             annotateButton.Checked = isAnnotating;
+            highlighterButton.Checked = false;  // Uncheck highlighter button
+            currentAnnotationType = AnnotationType.Rectangle;
             this.Cursor = isAnnotating ? Cursors.Cross : Cursors.Default;
         }
 
@@ -653,8 +675,11 @@ namespace CapSnip
                 isDrawingAnnotation = false;
                 if (selectionRect.Width > 0 && selectionRect.Height > 0)
                 {
-                    // Create new annotation with current color
-                    var annotation = new Annotation(selectionRect, currentColor);
+                    var annotation = new Annotation(
+                        selectionRect,
+                        currentColor,
+                        currentAnnotationType
+                    );
 
                     var addAnnotationCommand = new AddAnnotationCommand(
                         annotations,
@@ -662,12 +687,9 @@ namespace CapSnip
                     );
 
                     undoRedoManager.ExecuteCommand(addAnnotationCommand);
-
                     RedrawAnnotations();
                     pictureBox.Invalidate();
                     UpdateUndoRedoButtons();
-
-                    // Copy the updated image to the clipboard
                     CopyImageToClipboard();
                 }
             }
@@ -680,23 +702,51 @@ namespace CapSnip
                 e.Graphics.DrawImage(capturedImage, Point.Empty);
             }
 
-            // Draw the current selection rectangle with current color
+            // Enable high quality rendering
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
+
+            // Draw the current selection rectangle
             if (isDrawingAnnotation && selectionRect.Width > 0 && selectionRect.Height > 0)
             {
-                using (Pen pen = new Pen(currentColor, 2))
+                if (currentAnnotationType == AnnotationType.Highlighter)
                 {
-                    e.Graphics.DrawRectangle(pen, selectionRect);
+                    DrawSoftHighlight(e.Graphics, selectionRect, currentColor);
+                }
+                else
+                {
+                    using (Pen pen = new Pen(currentColor, 2))
+                    {
+                        e.Graphics.DrawRectangle(pen, selectionRect);
+                    }
                 }
             }
 
-            // Draw existing annotations with their own colors
+            // Draw existing annotations
             foreach (var annotation in annotations)
             {
-                using (Pen pen = new Pen(annotation.Color, 2))
+                if (annotation.Type == AnnotationType.Highlighter)
                 {
-                    e.Graphics.DrawRectangle(pen, annotation.Rectangle);
+                    DrawSoftHighlight(e.Graphics, annotation.Rectangle, annotation.Color);
+                }
+                else
+                {
+                    using (Pen pen = new Pen(annotation.Color, 2))
+                    {
+                        e.Graphics.DrawRectangle(pen, annotation.Rectangle);
+                    }
                 }
             }
+        }
+
+        private void Highlighter_Click(object sender, EventArgs e)
+        {
+            isAnnotating = !isAnnotating;
+            highlighterButton.Checked = isAnnotating;
+            annotateButton.Checked = false;  // Uncheck rectangle button
+            currentAnnotationType = AnnotationType.Highlighter;
+            this.Cursor = isAnnotating ? Cursors.Cross : Cursors.Default;
         }
 
         private void UndoButton_Click(object sender, EventArgs e)
@@ -730,38 +780,23 @@ namespace CapSnip
         {
             if (capturedImage == null) return;
 
-            // Create a copy of the original captured image
             Image imageCopy = new Bitmap(capturedImage);
 
             using (Graphics g = Graphics.FromImage(imageCopy))
             {
                 foreach (var annotation in annotations)
                 {
-                    using (Pen pen = new Pen(annotation.Color, 2))  // Use the annotation's stored color
+                    if (annotation.Type == AnnotationType.Highlighter)
                     {
-                        g.DrawRectangle(pen, annotation.Rectangle);
+                        // Create semi-transparent brush for highlighter effect
+                        using (SolidBrush brush = new SolidBrush(Color.FromArgb(
+                            (int)(500 * annotation.Opacity),
+                            annotation.Color)))
+                        {
+                            g.FillRectangle(brush, annotation.Rectangle);
+                        }
                     }
-                }
-            }
-
-            // Update the PictureBox with the new image
-            pictureBox.Image = imageCopy;
-        }
-        private void CopyImageToClipboard()
-        {
-            if (capturedImage == null) return;
-
-            // Create a new bitmap with the same dimensions as the captured image
-            using (Bitmap imageCopy = new Bitmap(capturedImage.Width, capturedImage.Height))
-            {
-                // Create graphics from the new bitmap
-                using (Graphics g = Graphics.FromImage(imageCopy))
-                {
-                    // First draw the original captured image
-                    g.DrawImage(capturedImage, Point.Empty);
-
-                    // Then draw all annotations
-                    foreach (var annotation in annotations)
+                    else // Rectangle
                     {
                         using (Pen pen = new Pen(annotation.Color, 2))
                         {
@@ -769,9 +804,82 @@ namespace CapSnip
                         }
                     }
                 }
+            }
 
-                // Copy the composite image (with annotations) to the clipboard
+            pictureBox.Image = imageCopy;
+        }
+        private void CopyImageToClipboard()
+        {
+            if (capturedImage == null) return;
+
+            using (Bitmap imageCopy = new Bitmap(capturedImage.Width, capturedImage.Height))
+            {
+                using (Graphics g = Graphics.FromImage(imageCopy))
+                {
+                    // Enable high quality rendering
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.CompositingQuality = CompositingQuality.HighQuality;
+
+                    // Draw the original image
+                    g.DrawImage(capturedImage, Point.Empty);
+
+                    // Draw annotations
+                    foreach (var annotation in annotations)
+                    {
+                        if (annotation.Type == AnnotationType.Highlighter)
+                        {
+                            DrawSoftHighlight(g, annotation.Rectangle, annotation.Color);
+                        }
+                        else
+                        {
+                            // Regular rectangle annotation
+                            using (Pen pen = new Pen(annotation.Color, 2))
+                            {
+                                g.DrawRectangle(pen, annotation.Rectangle);
+                            }
+                        }
+                    }
+                }
+
                 Clipboard.SetImage(imageCopy);
+            }
+        }
+
+        public enum AnnotationType
+        {
+            Rectangle,
+            Highlighter
+        }
+
+        private void DrawSoftHighlight(Graphics g, Rectangle rect, Color color)
+        {
+            // Create a path with slightly rounded corners for a softer look
+            using (GraphicsPath path = new GraphicsPath())
+            {
+                path.AddRectangle(rect);
+
+                // Create gradient brush for a more natural highlight look
+                using (PathGradientBrush pgBrush = new PathGradientBrush(path))
+                {
+                    // Center color (more opaque)
+                    pgBrush.CenterColor = Color.FromArgb(160, color);
+
+                    // Edge color (more transparent)
+                    Color[] surroundColors = new Color[] { Color.FromArgb(100, color) };
+                    pgBrush.SurroundColors = surroundColors;
+
+                    // Slightly offset the focus point for a more natural look
+                    pgBrush.FocusScales = new PointF(0.95f, 0.85f);
+
+                    g.FillPath(pgBrush, path);
+                }
+
+                // Add a very subtle edge
+                using (Pen edgePen = new Pen(Color.FromArgb(40, color), 1))
+                {
+                    g.DrawPath(edgePen, path);
+                }
             }
         }
         private void ClearAllButton_Click(object sender, EventArgs e)
@@ -1016,11 +1124,15 @@ namespace CapSnip
     {
         public Rectangle Rectangle { get; set; }
         public Color Color { get; set; }
+        public AnnotationType Type { get; set; }
+        public float Opacity { get; private set; }
 
-        public Annotation(Rectangle rectangle, Color color)
+        public Annotation(Rectangle rectangle, Color color, AnnotationType type)
         {
             Rectangle = rectangle;
             Color = color;
+            Type = type;
+            Opacity = type == AnnotationType.Highlighter ? 0.5f : 1f;
         }
     }
     public class UndoRedoManager
