@@ -778,14 +778,21 @@ namespace CapSnip
         {
             if (annotations.Count > 0)
             {
-                annotations.Clear();
-                RedrawAnnotations();
-                undoRedoManager = new UndoRedoManager(); // Reset the undo/redo manager
-                pictureBox.Invalidate(); // Refresh the PictureBox to reflect changes
-                UpdateUndoRedoButtons(); // Update the state of the buttons
+                DialogResult result = MessageBox.Show(
+                    "Are you sure you want to clear all annotations?",
+                    "Confirm Clear All",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
 
-                // Copy the updated image to the clipboard
-                CopyImageToClipboard();
+                if (result == DialogResult.Yes)
+                {
+                    annotations.Clear();
+                    RedrawAnnotations();
+                    undoRedoManager = new UndoRedoManager();
+                    pictureBox.Invalidate();
+                    UpdateUndoRedoButtons();
+                    CopyImageToClipboard();
+                }
             }
         }
     }
