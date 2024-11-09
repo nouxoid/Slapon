@@ -10,7 +10,7 @@ namespace CapSnip
 {
     public partial class MainForm : Form
     {
-        private bool isDragging = false;
+        private bool isDragging;
         private Point startPoint;
         private Rectangle selectionRect;
         private Image capturedImage;
@@ -29,6 +29,13 @@ namespace CapSnip
         private const int MIN_WINDOW_WIDTH = 800;
         private const int MIN_WINDOW_HEIGHT = 600;
 
+        private const int HANDLE_SIZE = 8;
+        private bool isResizing = false;
+        private ResizeHandle currentHandle = ResizeHandle.None;
+
+        private System.Windows.Forms.ToolStrip toolStrip1;
+
+
         private System.Windows.Forms.Label dateTimeLabel;
 
         private Color currentColor = Color.Red; // Default color
@@ -40,24 +47,56 @@ namespace CapSnip
         private System.Windows.Forms.Label opacityLabel;
         private int defaultOpacity = 50;
 
+        private System.Windows.Forms.TrackBar thicknessTrackBar;
+        private Label thicknessLabel;
+        
+
+        
+
         public enum AnnotationType
         {
             Rectangle,
             Highlighter
         }
+
+        
         public class Annotation
         {
-            public Rectangle Rectangle { get; }
-            public Color Color { get; }
+            public Rectangle Rectangle { get; set; } // Make settable for resizing
+            public Color Color { get; set; }
             public AnnotationType Type { get; }
             public float Opacity { get; set; }
+            public float LineThickness { get; set; } = 2f; // Default thickness
 
-            public Annotation(Rectangle rectangle, Color color, AnnotationType type, float opacity)
+            public Annotation(Rectangle rectangle, Color color, AnnotationType type, float opacity, float lineThickness = 2f)
             {
                 Rectangle = rectangle;
                 Color = color;
                 Type = type;
                 Opacity = opacity;
+                LineThickness = lineThickness;
+            }
+
+            public bool Contains(Point point)
+            {
+                return Rectangle.Contains(point) || GetResizeHandle(point) != ResizeHandle.None;
+            }
+
+            public ResizeHandle GetResizeHandle(Point point)
+            {
+                // Check each handle
+                var handles = new[]
+                {
+            new { Handle = ResizeHandle.TopLeft, Rect = new Rectangle(Rectangle.Left - HANDLE_SIZE/2, Rectangle.Top - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) },
+            // ... (add all other handles)
+        };
+
+                foreach (var handle in handles)
+                {
+                    if (handle.Rect.Contains(point))
+                        return handle.Handle;
+                }
+                return ResizeHandle.None;
             }
         }
 
@@ -72,6 +111,7 @@ namespace CapSnip
         public MainForm()
         {
             InitializeComponent();
+            InitializeThicknessControls();
             SetupOpacityControls();
             SetupUI();
             this.Load += MainForm_Load;
@@ -385,6 +425,90 @@ namespace CapSnip
             }
         }
 
+        private void DrawSelectionHandles(Graphics g, Rectangle rect)
+        {
+            var handles = new[]
+            {
+        // Corners
+        new { Pos = ResizeHandle.TopLeft, Rect = new Rectangle(rect.Left - HANDLE_SIZE/2, rect.Top - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) },
+        new { Pos = ResizeHandle.TopRight, Rect = new Rectangle(rect.Right - HANDLE_SIZE/2, rect.Top - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) },
+        new { Pos = ResizeHandle.BottomLeft, Rect = new Rectangle(rect.Left - HANDLE_SIZE/2, rect.Bottom - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) },
+        new { Pos = ResizeHandle.BottomRight, Rect = new Rectangle(rect.Right - HANDLE_SIZE/2, rect.Bottom - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) },
+        // Sides
+        new { Pos = ResizeHandle.Top, Rect = new Rectangle(rect.Left + rect.Width/2 - HANDLE_SIZE/2, rect.Top - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) },
+        new { Pos = ResizeHandle.Bottom, Rect = new Rectangle(rect.Left + rect.Width/2 - HANDLE_SIZE/2, rect.Bottom - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) },
+        new { Pos = ResizeHandle.Left, Rect = new Rectangle(rect.Left - HANDLE_SIZE/2, rect.Top + rect.Height/2 - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) },
+        new { Pos = ResizeHandle.Right, Rect = new Rectangle(rect.Right - HANDLE_SIZE/2, rect.Top + rect.Height/2 - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) }
+    };
+
+            using (var handleBrush = new SolidBrush(Color.White))
+            using (var handlePen = new Pen(Color.FromArgb(0, 120, 215), 1))
+            {
+                foreach (var handle in handles)
+                {
+                    g.FillRectangle(handleBrush, handle.Rect);
+                    g.DrawRectangle(handlePen, handle.Rect);
+                }
+            }
+        }
+
+        private void InitializeThicknessControls()
+        {
+            // Create toolStrip if it doesn't exist
+            if (toolStrip1 == null)
+            {
+                toolStrip1 = new System.Windows.Forms.ToolStrip();
+                this.Controls.Add(toolStrip1);
+            }
+
+            // Create the label
+            thicknessLabel = new System.Windows.Forms.Label
+            {
+                Text = "Thickness:",
+                AutoSize = true,
+                Visible = false
+            };
+
+            // Create the trackbar with fully qualified name
+            thicknessTrackBar = new System.Windows.Forms.TrackBar();
+            {
+                Minimum = 1,
+                Maximum = 10,
+                Value = 2,
+                Width = 100,
+                Visible = false,
+                TickFrequency = 1,
+                TickStyle = System.Windows.Forms.TickStyle.Both
+            };
+
+            thicknessTrackBar.ValueChanged += ThicknessTrackBar_ValueChanged;
+
+            var labelHost = new System.Windows.Forms.ToolStripControlHost(thicknessLabel);
+            var trackBarHost = new System.Windows.Forms.ToolStripControlHost(thicknessTrackBar);
+
+            toolStrip1.Items.Add(labelHost);
+            toolStrip1.Items.Add(trackBarHost);
+        }
+
+        private void ThicknessTrackBar_ValueChanged(object sender, EventArgs e)
+        {
+            if (selectedAnnotation != null && selectedAnnotation.Type == AnnotationType.Rectangle)
+            {
+                float oldThickness = selectedAnnotation.LineThickness;
+                float newThickness = thicknessTrackBar.Value;
+
+                var command = new AnnotationPropertyChangeCommand(
+                    selectedAnnotation,
+                    "LineThickness",
+                    oldThickness,
+                    newThickness
+                );
+
+                undoRedoManager.ExecuteCommand(command);
+                pictureBox.Invalidate();
+            }
+        }
+
         private void AddToolStripSpacing()
         {
             // Add flexible spacing between button groups
@@ -495,6 +619,171 @@ namespace CapSnip
                     pictureBox.Invalidate();
                 }
             };
+        }
+
+        private void UpdateSelectionRectangle(Point currentPoint)
+        {
+            if (isDrawingAnnotation)
+            {
+                int x = Math.Min(startPoint.X, currentPoint.X);
+                int y = Math.Min(startPoint.Y, currentPoint.Y);
+                int width = Math.Abs(currentPoint.X - startPoint.X);
+                int height = Math.Abs(currentPoint.Y - startPoint.Y);
+                selectionRect = new Rectangle(x, y, width, height);
+            }
+        }
+
+        private void UpdateCursor(Point point)
+        {
+            if (selectedAnnotation != null)
+            {
+                ResizeHandle handle = selectedAnnotation.GetResizeHandle(point);
+                switch (handle)
+                {
+                    case ResizeHandle.TopLeft:
+                    case ResizeHandle.BottomRight:
+                        this.Cursor = Cursors.SizeNWSE;
+                        break;
+                    case ResizeHandle.TopRight:
+                    case ResizeHandle.BottomLeft:
+                        this.Cursor = Cursors.SizeNESW;
+                        break;
+                    case ResizeHandle.Top:
+                    case ResizeHandle.Bottom:
+                        this.Cursor = Cursors.SizeNS;
+                        break;
+                    case ResizeHandle.Left:
+                    case ResizeHandle.Right:
+                        this.Cursor = Cursors.SizeWE;
+                        break;
+                    default:
+                        this.Cursor = selectedAnnotation.Contains(point) ? Cursors.SizeAll : Cursors.Default;
+                        break;
+                }
+            }
+            else
+            {
+                this.Cursor = isDrawingAnnotation ? Cursors.Cross : Cursors.Default;
+            }
+        }
+
+        private void ResizeSelectedAnnotation(Point currentPoint)
+        {
+            if (selectedAnnotation != null && isResizing)
+            {
+                Rectangle oldRect = selectedAnnotation.Rectangle;
+                Rectangle newRect = oldRect;
+
+                switch (currentHandle)
+                {
+                    case ResizeHandle.TopLeft:
+                        newRect = new Rectangle(
+                            currentPoint.X,
+                            currentPoint.Y,
+                            oldRect.Right - currentPoint.X,
+                            oldRect.Bottom - currentPoint.Y
+                        );
+                        break;
+                    case ResizeHandle.TopRight:
+                        newRect = new Rectangle(
+                            oldRect.X,
+                            currentPoint.Y,
+                            currentPoint.X - oldRect.X,
+                            oldRect.Bottom - currentPoint.Y
+                        );
+                        break;
+                    case ResizeHandle.BottomLeft:
+                        newRect = new Rectangle(
+                            currentPoint.X,
+                            oldRect.Y,
+                            oldRect.Right - currentPoint.X,
+                            currentPoint.Y - oldRect.Y
+                        );
+                        break;
+                    case ResizeHandle.BottomRight:
+                        newRect = new Rectangle(
+                            oldRect.X,
+                            oldRect.Y,
+                            currentPoint.X - oldRect.X,
+                            currentPoint.Y - oldRect.Y
+                        );
+                        break;
+                    case ResizeHandle.Top:
+                        newRect = new Rectangle(
+                            oldRect.X,
+                            currentPoint.Y,
+                            oldRect.Width,
+                            oldRect.Bottom - currentPoint.Y
+                        );
+                        break;
+                    case ResizeHandle.Bottom:
+                        newRect = new Rectangle(
+                            oldRect.X,
+                            oldRect.Y,
+                            oldRect.Width,
+                            currentPoint.Y - oldRect.Y
+                        );
+                        break;
+                    case ResizeHandle.Left:
+                        newRect = new Rectangle(
+                            currentPoint.X,
+                            oldRect.Y,
+                            oldRect.Right - currentPoint.X,
+                            oldRect.Height
+                        );
+                        break;
+                    case ResizeHandle.Right:
+                        newRect = new Rectangle(
+                            oldRect.X,
+                            oldRect.Y,
+                            currentPoint.X - oldRect.X,
+                            oldRect.Height
+                        );
+                        break;
+                }
+
+                // Ensure minimum size
+                if (newRect.Width >= 5 && newRect.Height >= 5)
+                {
+                    var command = new AnnotationPropertyChangeCommand(
+                        selectedAnnotation,
+                        "Rectangle",
+                        oldRect,
+                        newRect
+                    );
+
+                    undoRedoManager.ExecuteCommand(command);
+                    pictureBox.Invalidate();
+                }
+            }
+        }
+
+        private void MoveSelectedAnnotation(Point currentPoint)
+        {
+            if (selectedAnnotation != null && this.isDragging)
+            {
+                int dx = currentPoint.X - startPoint.X;
+                int dy = currentPoint.Y - startPoint.Y;
+
+                Rectangle oldRect = selectedAnnotation.Rectangle;
+                Rectangle newRect = new Rectangle(
+                    oldRect.X + dx,
+                    oldRect.Y + dy,
+                    oldRect.Width,
+                    oldRect.Height
+                );
+
+                var command = new AnnotationPropertyChangeCommand(
+                    selectedAnnotation,
+                    "Rectangle",
+                    oldRect,
+                    newRect
+                );
+
+                undoRedoManager.ExecuteCommand(command);
+                startPoint = currentPoint;
+                pictureBox.Invalidate();
+            }
         }
 
         private void CenterPictureBox()
@@ -795,34 +1084,60 @@ namespace CapSnip
         {
             if (e.Button == MouseButtons.Left)
             {
-                if (currentTool == Tool.Select)
+                startPoint = e.Location;
+                this.isDragging = true;
+
+                // Check if clicking on an existing annotation
+                var clickedAnnotation = annotations
+                    .Where(a => a.Contains(e.Location))
+                    .LastOrDefault();
+
+                if (clickedAnnotation != null)
                 {
-                    HandleSelection(e.Location);
+                    selectedAnnotation = clickedAnnotation;
+                    currentHandle = clickedAnnotation.GetResizeHandle(e.Location);
+
+                    if (currentHandle != ResizeHandle.None)
+                    {
+                        isResizing = true;
+                    }
+                    else
+                    {
+                        isDragging = true;
+                    }
+
+                    // Show appropriate controls based on annotation type
+                    UpdateControlsForSelectedAnnotation();
                 }
                 else
                 {
+                    // Start drawing new annotation if no existing annotation was clicked
                     isDrawingAnnotation = true;
-                    startPoint = e.Location;
-                    annotationStart = e.Location;  // Add this line
                     selectionRect = new Rectangle(startPoint, Size.Empty);
-                    selectedAnnotation = null; // Clear selection when starting new annotation
+                    selectedAnnotation = null;
                 }
+
+                pictureBox.Invalidate();
             }
         }
 
         private void PictureBox_MouseMove(object sender, MouseEventArgs e)
         {
-            if (isDrawingAnnotation)
+            if (isResizing && selectedAnnotation != null)
             {
-                // Calculate rectangle dimensions based on start point and current position
-                int x = Math.Min(startPoint.X, e.X);
-                int y = Math.Min(startPoint.Y, e.Y);
-                int width = Math.Abs(e.X - startPoint.X);
-                int height = Math.Abs(e.Y - startPoint.Y);
-
-                selectionRect = new Rectangle(x, y, width, height);
-                pictureBox.Invalidate();
+                ResizeSelectedAnnotation(e.Location);
             }
+            else if (isDragging && selectedAnnotation != null)
+            {
+                MoveSelectedAnnotation(e.Location);
+            }
+            else if (isDrawingAnnotation)
+            {
+                UpdateSelectionRectangle(e.Location);
+            }
+
+            UpdateCursor(e.Location);
+            pictureBox.Invalidate();
         }
 
 
@@ -910,6 +1225,122 @@ namespace CapSnip
                     }
                 }
             }
+        }
+
+        private void UpdateControlsForSelectedAnnotation()
+        {
+            if (selectedAnnotation != null)
+            {
+                opacityTrackBar.Visible = selectedAnnotation.Type == AnnotationType.Highlighter;
+                opacityLabel.Visible = selectedAnnotation.Type == AnnotationType.Highlighter;
+                if (selectedAnnotation.Type == AnnotationType.Highlighter)
+                {
+                    opacityTrackBar.Value = (int)(selectedAnnotation.Opacity * 100);
+                }
+
+                // Add thickness control visibility here
+                thicknessTrackBar.Visible = selectedAnnotation.Type == AnnotationType.Rectangle;
+                thicknessLabel.Visible = selectedAnnotation.Type == AnnotationType.Rectangle;
+                if (selectedAnnotation.Type == AnnotationType.Rectangle)
+                {
+                    thicknessTrackBar.Value = (int)selectedAnnotation.LineThickness;
+                }
+            }
+            else
+            {
+                opacityTrackBar.Visible = false;
+                opacityLabel.Visible = false;
+                thicknessTrackBar.Visible = false;
+                thicknessLabel.Visible = false;
+            }
+        }
+
+        public class AnnotationPropertyChangeCommand : ICommand
+        {
+            private Annotation annotation;
+            private string propertyName;
+            private object oldValue;
+            private object newValue;
+
+            public AnnotationPropertyChangeCommand(Annotation annotation, string propertyName, object oldValue, object newValue)
+            {
+                this.annotation = annotation;
+                this.propertyName = propertyName;
+                this.oldValue = oldValue;
+                this.newValue = newValue;
+            }
+
+            public void Execute()
+            {
+                SetPropertyValue(newValue);
+            }
+
+            public void Undo()
+            {
+                SetPropertyValue(oldValue);
+            }
+
+            private void SetPropertyValue(object value)
+            {
+                switch (propertyName)
+                {
+                    case "Rectangle":
+                        annotation.Rectangle = (Rectangle)value;
+                        break;
+                    case "Color":
+                        annotation.Color = (Color)value;
+                        break;
+                    case "Opacity":
+                        annotation.Opacity = (float)value;
+                        break;
+                    case "LineThickness":
+                        annotation.LineThickness = (float)value;
+                        break;
+                }
+            }
+        }
+
+        private void SetupThicknessControl()
+        {
+            thicknessLabel = new Label
+            {
+                Text = "Thickness:",
+                AutoSize = true,
+                Visible = false
+            };
+
+            thicknessTrackBar = new System.Windows.Forms.TrackBar
+            {
+                Minimum = 1,
+                Maximum = 10,
+                Value = 2,
+                Width = 100,
+                Visible = false,
+                TickFrequency = 1,
+                TickStyle = TickStyle.Both
+            };
+
+            TrackBar.ValueChanged += (s, e) =>
+            {
+                if (selectedAnnotation != null && selectedAnnotation.Type == AnnotationType.Rectangle)
+                {
+                    float oldThickness = selectedAnnotation.LineThickness;
+                    float newThickness = thicknessTrackBar.Value;
+
+                    var command = new AnnotationPropertyChangeCommand(
+                        selectedAnnotation,
+                        "LineThickness",
+                        oldThickness,
+                        newThickness
+                    );
+
+                    undoRedoManager.ExecuteCommand(command);
+                    pictureBox.Invalidate();
+                    CopyImageToClipboard();
+                }
+            };
+
+            // Add to toolstrip similarly to opacity controls
         }
 
         // Update your Highlighter_Click method to show/hide opacity controls
@@ -1070,11 +1501,20 @@ namespace CapSnip
         }
     }
 
+
+    public enum ResizeHandle
+    {
+        None,
+        TopLeft, TopRight,
+        BottomLeft, BottomRight,
+        Top, Bottom,
+        Left, Right
+    }
     public class CaptureForm : Form
     {
         private Point startPoint;
         private Rectangle selectionRect;
-        private bool isDragging = false;
+        
         public Image CapturedImage { get; private set; }
 
         public CaptureForm()
