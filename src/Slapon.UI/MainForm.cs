@@ -16,27 +16,20 @@ public partial class MainForm : Form
     private bool _isDrawing = false;
     private Color _currentColor = Color.Red;
     private AnnotationType _currentType = AnnotationType.Rectangle;
-    private IAnnotation _selectedAnnotation;
+    private bool _isDragging = false;
+    private PictureBox pictureBox;
 
     public MainForm()
     {
         InitializeComponent();
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
-        pictureBox.MouseClick += (s, e) =>
-        {
-            var clickPoint = new PointF(e.X, e.Y);
-            var annotation = _annotationService.GetAnnotationAt(clickPoint);
-            _annotationService.SelectAnnotation(annotation);
-            pictureBox.Refresh();
-        };
         _annotationService.AnnotationsChanged += (s, e) => pictureBox.Refresh();
         SetupUI();
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        // Delete key to remove selected annotation
         if (keyData == Keys.Delete)
         {
             var selected = _annotationService.SelectedAnnotation;
@@ -47,7 +40,6 @@ public partial class MainForm : Form
                 return true;
             }
         }
-
         return base.ProcessCmdKey(ref msg, keyData);
     }
     private void SetupUI()
@@ -160,28 +152,30 @@ public partial class MainForm : Form
         if (_isDrawing)
         {
             var rect = GetRectangle(_startPoint, pictureBox.PointToClient(Cursor.Position));
-            using var pen = new Pen(_currentColor, 2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+            using var pen = new Pen(_currentColor, 2f) { DashStyle = DashStyle.Dash };
             e.Graphics.DrawRectangle(pen, rect);
         }
     }
 
     private void PictureBox_MouseDown(object? sender, MouseEventArgs e)
     {
-        if (_currentImage == null) return;
-
         if (e.Button == MouseButtons.Left)
         {
-            var clickedAnnotation = _annotationService.GetAnnotationAt(e.Location);
+            var clickPoint = new PointF(e.X, e.Y);
+            var clickedAnnotation = _annotationService.GetAnnotationAt(clickPoint);
+
             if (clickedAnnotation != null)
             {
                 _annotationService.SelectAnnotation(clickedAnnotation);
+                _isDragging = true;
             }
             else
             {
                 _isDrawing = true;
-                _startPoint = e.Location;
+                _startPoint = clickPoint;
                 _annotationService.SelectAnnotation(null);
             }
+            pictureBox.Refresh();
         }
     }
 
@@ -193,48 +187,41 @@ public partial class MainForm : Form
         }
         else if (e.Button == MouseButtons.Left && _annotationService.SelectedAnnotation != null)
         {
-            _annotationService.MoveSelectedAnnotation(e.Location);
+            _annotationService.MoveSelectedAnnotation(new PointF(e.X, e.Y));
         }
     }
 
     private void PictureBox_MouseUp(object? sender, MouseEventArgs e)
     {
-        if (_isDrawing)
+        if (e.Button == MouseButtons.Left)
         {
-            _isDrawing = false;
-            var rect = GetRectangle(_startPoint, e.Location);
-            if (rect.Width > 5 && rect.Height > 5)
+            if (_isDrawing)
             {
-                var annotation = _annotationFactory.CreateAnnotation(
-                    _currentType,
-                    rect,
-                    _currentColor
-                );
+                var endPoint = new PointF(e.X, e.Y);
+                var bounds = GetRectangle(_startPoint, endPoint);
+                var annotation = new RectangleAnnotation(bounds, _currentColor, 1.0f);
                 _annotationService.AddAnnotation(annotation);
+                _isDrawing = false;
             }
+            _isDragging = false;
+            pictureBox.Refresh();
         }
     }
 
-    private static Rectangle GetRectangle(Point startPoint, Point endPoint)
+
+    private static Rectangle GetRectangle(PointF startPoint, PointF endPoint)
     {
         return new Rectangle(
-            Math.Min(startPoint.X, endPoint.X),
-            Math.Min(startPoint.Y, endPoint.Y),
-            Math.Abs(endPoint.X - startPoint.X),
-            Math.Abs(endPoint.Y - startPoint.Y)
+            (int)Math.Min(startPoint.X, endPoint.X),
+            (int)Math.Min(startPoint.Y, endPoint.Y),
+            (int)Math.Abs(endPoint.X - startPoint.X),
+            (int)Math.Abs(endPoint.Y - startPoint.Y)
         );
     }
 
-    private void pictureBox_MouseClick(object sender, MouseEventArgs e)
-    {
-        var clickPoint = e.Location;
-        _selectedAnnotation = _annotationService.GetAnnotationAt(clickPoint);
+    
 
-        // Optional: Add visual feedback that something was selected
-        pictureBox.Refresh();
-    }
-
-    private PictureBox pictureBox;
+    
 
     private void MainForm_Load(object sender, EventArgs e)
     {
