@@ -10,6 +10,25 @@ namespace CapSnip
 {
     public partial class MainForm : Form
     {
+        // Control declarations
+        private Panel annotationPanel;
+        private Button deleteButton;
+        private Button colorButton;
+        private TrackBar opacityTrackBar;
+        private Label opacityLabel;
+        private RadioButton rectangleButton;
+        private RadioButton highlighterButton;
+        private Panel thicknessPanel;
+        private TrackBar thicknessTrackBar;
+        private Label thicknessLabel;
+
+        // Tool settings
+        private Color currentColor = Color.Red; // Default color
+        private float currentOpacity = 1.0f;   // Default opacity (100%)
+        private float currentThickness = 2.0f;  // Default line thickness
+        private AnnotationType currentAnnotationType = AnnotationType.Rectangle; // Default tool
+
+
         private bool isDragging;
         private Point startPoint;
         private Rectangle selectionRect;
@@ -49,9 +68,10 @@ namespace CapSnip
 
         private System.Windows.Forms.TrackBar thicknessTrackBar;
         private Label thicknessLabel;
-        
+        private float currentThickness = 2f;  // Default thickness
 
-        
+
+
 
         public enum AnnotationType
         {
@@ -59,44 +79,117 @@ namespace CapSnip
             Highlighter
         }
 
-        
+
         public class Annotation
         {
-            public Rectangle Rectangle { get; set; } // Make settable for resizing
-            public Color Color { get; set; }
-            public AnnotationType Type { get; }
-            public float Opacity { get; set; }
-            public float LineThickness { get; set; } = 2f; // Default thickness
+            // Properties
+            public Rectangle Bounds { get; private set; }  // Using 'Bounds' to avoid confusion with System.Drawing.Rectangle
+            public Color Color { get; private set; }
+            public AnnotationType Type { get; private set; }
+            public float Opacity { get; private set; }
+            public float LineThickness { get; private set; }
 
-            public Annotation(Rectangle rectangle, Color color, AnnotationType type, float opacity, float lineThickness = 2f)
+            // Constructor
+            public Annotation(Rectangle bounds, Color color, AnnotationType type, float opacity, float lineThickness = 2f)
             {
-                Rectangle = rectangle;
+                Bounds = bounds;
                 Color = color;
                 Type = type;
                 Opacity = opacity;
                 LineThickness = lineThickness;
             }
 
-            public bool Contains(Point point)
+            // Add method to update LineThickness
+            public void UpdateLineThickness(float thickness)
             {
-                return Rectangle.Contains(point) || GetResizeHandle(point) != ResizeHandle.None;
+                LineThickness = thickness;
             }
 
+            // Update Clone method to include LineThickness
+            public Annotation Clone()
+            {
+                return new Annotation(Bounds, Color, Type, Opacity, LineThickness);
+            }
+
+
+            // Methods for modifying properties
+            public void MoveTo(Point newLocation)
+            {
+                Bounds = new Rectangle(newLocation, Bounds.Size);
+            }
+
+            public void Resize(Rectangle newBounds)
+            {
+                Bounds = newBounds;
+            }
+
+            public void UpdateProperties(Color color, float opacity)
+            {
+                Color = color;
+                Opacity = opacity;
+            }
+
+            // Hit testing
+            public bool Contains(Point point)
+            {
+                return Bounds.Contains(point);
+            }
+
+            // Resize handle detection
             public ResizeHandle GetResizeHandle(Point point)
             {
-                // Check each handle
-                var handles = new[]
-                {
-            new { Handle = ResizeHandle.TopLeft, Rect = new Rectangle(Rectangle.Left - HANDLE_SIZE/2, Rectangle.Top - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE) },
-            // ... (add all other handles)
-        };
+                const int handleSize = 6;
+                var handleRect = new Rectangle(point.X - handleSize / 2, point.Y - handleSize / 2, handleSize, handleSize);
 
-                foreach (var handle in handles)
-                {
-                    if (handle.Rect.Contains(point))
-                        return handle.Handle;
-                }
+                // Top-left
+                if (handleRect.IntersectsWith(new Rectangle(Bounds.Left, Bounds.Top, handleSize, handleSize)))
+                    return ResizeHandle.TopLeft;
+
+                // Top-right
+                if (handleRect.IntersectsWith(new Rectangle(Bounds.Right - handleSize, Bounds.Top, handleSize, handleSize)))
+                    return ResizeHandle.TopRight;
+
+                // Bottom-left
+                if (handleRect.IntersectsWith(new Rectangle(Bounds.Left, Bounds.Bottom - handleSize, handleSize, handleSize)))
+                    return ResizeHandle.BottomLeft;
+
+                // Bottom-right
+                if (handleRect.IntersectsWith(new Rectangle(Bounds.Right - handleSize, Bounds.Bottom - handleSize, handleSize, handleSize)))
+                    return ResizeHandle.BottomRight;
+
                 return ResizeHandle.None;
+            }
+
+            // Deep clone support
+            public Annotation Clone()
+            {
+                return new Annotation(Bounds, Color, Type, Opacity);
+            }
+        }
+
+
+        // Command for handling annotation moves
+        public class MoveAnnotationCommand : ICommand
+        {
+            private readonly Annotation annotation;
+            private readonly Point originalLocation;
+            private readonly Point newLocation;
+
+            public MoveAnnotationCommand(Annotation annotation, Point originalLocation, Point newLocation)
+            {
+                this.annotation = annotation;
+                this.originalLocation = originalLocation;
+                this.newLocation = newLocation;
+            }
+
+            public void Execute()
+            {
+                annotation.MoveTo(newLocation);
+            }
+
+            public void Undo()
+            {
+                annotation.MoveTo(originalLocation);
             }
         }
 
@@ -112,6 +205,7 @@ namespace CapSnip
         {
             InitializeComponent();
             InitializeThicknessControls();
+            InitializeAnnotationControls();
             SetupOpacityControls();
             SetupUI();
             this.Load += MainForm_Load;
@@ -390,6 +484,209 @@ namespace CapSnip
             AddToolStripSpacing();
             ResumeLayout(false);
             PerformLayout();
+        }
+
+        // Add this method to initialize the controls
+        private void InitializeAnnotationControls()
+        {
+            // Create main annotation panel
+            annotationPanel = new Panel
+            {
+                Dock = DockStyle.Right,
+                Width = 200,
+                Padding = new Padding(10)
+            };
+
+            // Create color button
+            colorButton = new Button
+            {
+                Text = "Color",
+                BackColor = currentColor,
+                FlatStyle = FlatStyle.Flat,
+                Width = 80,
+                Height = 30
+            };
+            colorButton.Click += ColorButton_Click;
+
+            // Create delete button
+            deleteButton = new Button
+            {
+                Text = "Delete",
+                Width = 80,
+                Height = 30,
+                Enabled = false
+            };
+            deleteButton.Click += DeleteButton_Click;
+
+            // Create opacity controls
+            opacityLabel = new Label
+            {
+                Text = "Opacity:",
+                AutoSize = true
+            };
+
+            opacityTrackBar = new TrackBar
+            {
+                Minimum = 0,
+                Maximum = 100,
+                Value = (int)(currentOpacity * 100),
+                Width = 150
+            };
+            opacityTrackBar.ValueChanged += OpacityTrackBar_ValueChanged;
+
+            // Create annotation type controls
+            rectangleButton = new RadioButton
+            {
+                Text = "Rectangle",
+                Checked = true
+            };
+            rectangleButton.CheckedChanged += AnnotationType_CheckedChanged;
+
+            highlighterButton = new RadioButton
+            {
+                Text = "Highlighter"
+            };
+            highlighterButton.CheckedChanged += AnnotationType_CheckedChanged;
+
+            // Create thickness controls
+            thicknessPanel = new Panel
+            {
+                Height = 50
+            };
+
+            thicknessLabel = new Label
+            {
+                Text = "Thickness:",
+                AutoSize = true
+            };
+
+            thicknessTrackBar = new TrackBar
+            {
+                Minimum = 1,
+                Maximum = 10,
+                Value = (int)currentThickness,
+                Width = 150
+            };
+            thicknessTrackBar.ValueChanged += ThicknessTrackBar_ValueChanged;
+
+            // Layout controls
+            var flowLayout = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoSize = true
+            };
+
+            flowLayout.Controls.AddRange(new Control[]
+            {
+            colorButton,
+            deleteButton,
+            opacityLabel,
+            opacityTrackBar,
+            rectangleButton,
+            highlighterButton,
+            thicknessPanel
+            });
+
+            thicknessPanel.Controls.AddRange(new Control[]
+            {
+            thicknessLabel,
+            thicknessTrackBar
+            });
+
+            annotationPanel.Controls.Add(flowLayout);
+            this.Controls.Add(annotationPanel);
+        }
+
+        // Add these event handlers
+        private void ColorButton_Click(object sender, EventArgs e)
+        {
+            using (ColorDialog colorDialog = new ColorDialog())
+            {
+                colorDialog.Color = currentColor;
+                if (colorDialog.ShowDialog() == DialogResult.OK)
+                {
+                    currentColor = colorDialog.Color;
+                    colorButton.BackColor = currentColor;
+                    if (selectedAnnotation != null)
+                    {
+                        var originalState = selectedAnnotation.Clone();
+                        selectedAnnotation.UpdateProperties(currentColor, selectedAnnotation.Opacity);
+                        var command = new AnnotationPropertyChangeCommand(
+                            selectedAnnotation,
+                            originalState,
+                            selectedAnnotation.Clone()
+                        );
+                        undoRedoManager.ExecuteCommand(command);
+                        pictureBox.Invalidate();
+                    }
+                }
+            }
+        }
+
+        private void DeleteButton_Click(object sender, EventArgs e)
+        {
+            if (selectedAnnotation != null)
+            {
+                annotations.Remove(selectedAnnotation);
+                selectedAnnotation = null;
+                pictureBox.Invalidate();
+                UpdateControlsForSelectedAnnotation();
+            }
+        }
+
+        private void OpacityTrackBar_ValueChanged(object sender, EventArgs e)
+        {
+            float opacity = opacityTrackBar.Value / 100f;
+            if (selectedAnnotation != null)
+            {
+                var originalState = selectedAnnotation.Clone();
+                selectedAnnotation.UpdateProperties(selectedAnnotation.Color, opacity);
+                var command = new AnnotationPropertyChangeCommand(
+                    selectedAnnotation,
+                    originalState,
+                    selectedAnnotation.Clone()
+                );
+                undoRedoManager.ExecuteCommand(command);
+                pictureBox.Invalidate();
+            }
+            else
+            {
+                currentOpacity = opacity;
+            }
+            opacityLabel.Text = $"Opacity: {opacityTrackBar.Value}%";
+        }
+
+        private void ThicknessTrackBar_ValueChanged(object sender, EventArgs e)
+        {
+            if (selectedAnnotation != null && selectedAnnotation.Type == AnnotationType.Rectangle)
+            {
+                var originalState = selectedAnnotation.Clone();
+                selectedAnnotation.UpdateLineThickness(thicknessTrackBar.Value);
+                var command = new AnnotationPropertyChangeCommand(
+                    selectedAnnotation,
+                    originalState,
+                    selectedAnnotation.Clone()
+                );
+                undoRedoManager.ExecuteCommand(command);
+                pictureBox.Invalidate();
+            }
+            else
+            {
+                currentThickness = thicknessTrackBar.Value;
+            }
+            thicknessLabel.Text = $"Thickness: {thicknessTrackBar.Value}";
+        }
+
+        private void AnnotationType_CheckedChanged(object sender, EventArgs e)
+        {
+            if (sender is RadioButton rb && rb.Checked)
+            {
+                currentAnnotationType = rb == rectangleButton ?
+                    AnnotationType.Rectangle : AnnotationType.Highlighter;
+                thicknessPanel.Visible = currentAnnotationType == AnnotationType.Rectangle;
+            }
         }
 
 
@@ -673,89 +970,96 @@ namespace CapSnip
         {
             if (selectedAnnotation != null && isResizing)
             {
-                Rectangle oldRect = selectedAnnotation.Rectangle;
-                Rectangle newRect = oldRect;
+                Rectangle oldBounds = selectedAnnotation.Bounds;
+                Rectangle newBounds = oldBounds;
 
                 switch (currentHandle)
                 {
                     case ResizeHandle.TopLeft:
-                        newRect = new Rectangle(
+                        newBounds = new Rectangle(
                             currentPoint.X,
                             currentPoint.Y,
-                            oldRect.Right - currentPoint.X,
-                            oldRect.Bottom - currentPoint.Y
+                            oldBounds.Right - currentPoint.X,
+                            oldBounds.Bottom - currentPoint.Y
                         );
                         break;
                     case ResizeHandle.TopRight:
-                        newRect = new Rectangle(
-                            oldRect.X,
+                        newBounds = new Rectangle(
+                            oldBounds.X,
                             currentPoint.Y,
-                            currentPoint.X - oldRect.X,
-                            oldRect.Bottom - currentPoint.Y
+                            currentPoint.X - oldBounds.X,
+                            oldBounds.Bottom - currentPoint.Y
                         );
                         break;
                     case ResizeHandle.BottomLeft:
-                        newRect = new Rectangle(
+                        newBounds = new Rectangle(
                             currentPoint.X,
-                            oldRect.Y,
-                            oldRect.Right - currentPoint.X,
-                            currentPoint.Y - oldRect.Y
+                            oldBounds.Y,
+                            oldBounds.Right - currentPoint.X,
+                            currentPoint.Y - oldBounds.Y
                         );
                         break;
                     case ResizeHandle.BottomRight:
-                        newRect = new Rectangle(
-                            oldRect.X,
-                            oldRect.Y,
-                            currentPoint.X - oldRect.X,
-                            currentPoint.Y - oldRect.Y
+                        newBounds = new Rectangle(
+                            oldBounds.X,
+                            oldBounds.Y,
+                            currentPoint.X - oldBounds.X,
+                            currentPoint.Y - oldBounds.Y
                         );
                         break;
                     case ResizeHandle.Top:
-                        newRect = new Rectangle(
-                            oldRect.X,
+                        newBounds = new Rectangle(
+                            oldBounds.X,
                             currentPoint.Y,
-                            oldRect.Width,
-                            oldRect.Bottom - currentPoint.Y
+                            oldBounds.Width,
+                            oldBounds.Bottom - currentPoint.Y
                         );
                         break;
                     case ResizeHandle.Bottom:
-                        newRect = new Rectangle(
-                            oldRect.X,
-                            oldRect.Y,
-                            oldRect.Width,
-                            currentPoint.Y - oldRect.Y
+                        newBounds = new Rectangle(
+                            oldBounds.X,
+                            oldBounds.Y,
+                            oldBounds.Width,
+                            currentPoint.Y - oldBounds.Y
                         );
                         break;
                     case ResizeHandle.Left:
-                        newRect = new Rectangle(
+                        newBounds = new Rectangle(
                             currentPoint.X,
-                            oldRect.Y,
-                            oldRect.Right - currentPoint.X,
-                            oldRect.Height
+                            oldBounds.Y,
+                            oldBounds.Right - currentPoint.X,
+                            oldBounds.Height
                         );
                         break;
                     case ResizeHandle.Right:
-                        newRect = new Rectangle(
-                            oldRect.X,
-                            oldRect.Y,
-                            currentPoint.X - oldRect.X,
-                            oldRect.Height
+                        newBounds = new Rectangle(
+                            oldBounds.X,
+                            oldBounds.Y,
+                            currentPoint.X - oldBounds.X,
+                            oldBounds.Height
                         );
                         break;
                 }
 
                 // Ensure minimum size
-                if (newRect.Width >= 5 && newRect.Height >= 5)
+                if (newBounds.Width >= 5 && newBounds.Height >= 5)
                 {
+                    // Store original state
+                    Annotation originalState = selectedAnnotation.Clone();
+
+                    // Apply the resize
+                    selectedAnnotation.Resize(newBounds);
+
+                    // Create command with full annotation state
                     var command = new AnnotationPropertyChangeCommand(
                         selectedAnnotation,
-                        "Rectangle",
-                        oldRect,
-                        newRect
+                        originalState,
+                        selectedAnnotation.Clone()
                     );
 
                     undoRedoManager.ExecuteCommand(command);
                     pictureBox.Invalidate();
+                    CopyImageToClipboard();
                 }
             }
         }
@@ -767,24 +1071,26 @@ namespace CapSnip
                 int dx = currentPoint.X - startPoint.X;
                 int dy = currentPoint.Y - startPoint.Y;
 
-                Rectangle oldRect = selectedAnnotation.Rectangle;
-                Rectangle newRect = new Rectangle(
-                    oldRect.X + dx,
-                    oldRect.Y + dy,
-                    oldRect.Width,
-                    oldRect.Height
-                );
+                Rectangle oldBounds = selectedAnnotation.Bounds;
+                Point newLocation = new Point(oldBounds.X + dx, oldBounds.Y + dy);
 
+                // Store original state before move
+                Annotation originalState = selectedAnnotation.Clone();
+
+                // Move the annotation
+                selectedAnnotation.MoveTo(newLocation);
+
+                // Create command with full annotation state
                 var command = new AnnotationPropertyChangeCommand(
                     selectedAnnotation,
-                    "Rectangle",
-                    oldRect,
-                    newRect
+                    originalState,
+                    selectedAnnotation.Clone()
                 );
 
                 undoRedoManager.ExecuteCommand(command);
                 startPoint = currentPoint;
                 pictureBox.Invalidate();
+                CopyImageToClipboard();
             }
         }
 
@@ -1018,28 +1324,62 @@ namespace CapSnip
             }
         }
 
+        private void DrawSelectionIndicator(Graphics g, Annotation annotation)
+        {
+            using (Pen selectionPen = new Pen(Color.FromArgb(128, 0, 120, 215), 1))
+            {
+                selectionPen.DashStyle = DashStyle.Dash;
+                Rectangle selectionBounds = annotation.Bounds;
+                selectionBounds.Inflate(2, 2); // Make selection slightly larger
+                g.DrawRectangle(selectionPen, selectionBounds);
+
+                // Draw resize handles
+                DrawResizeHandles(g, selectionBounds);
+            }
+        }
+
         private void HandleSelection(Point mousePoint)
         {
             // Find the most recently created annotation that contains the click point
             selectedAnnotation = annotations
-                .Where(a => a.Rectangle.Contains(mousePoint))  // Remove the Type filter to allow all annotations
+                .Where(a => a.Bounds.Contains(mousePoint))  // Changed Rectangle to Bounds
                 .LastOrDefault();
 
             if (selectedAnnotation != null)
             {
-                // Show and update opacity controls only for highlighter annotations
-                opacityTrackBar.Visible = selectedAnnotation.Type == AnnotationType.Highlighter;
-                opacityLabel.Visible = selectedAnnotation.Type == AnnotationType.Highlighter;
-                if (selectedAnnotation.Type == AnnotationType.Highlighter)
+                // Enable all annotation controls
+                annotationPanel.Enabled = true;
+                deleteButton.Enabled = true;
+
+                // Update color button
+                colorButton.BackColor = selectedAnnotation.Color;
+
+                // Show and update opacity controls
+                opacityTrackBar.Visible = true;
+                opacityLabel.Visible = true;
+                opacityTrackBar.Value = (int)(selectedAnnotation.Opacity * 100);
+
+                // Update thickness controls for rectangle annotations
+                thicknessTrackBar.Visible = (selectedAnnotation.Type == AnnotationType.Rectangle);
+                thicknessLabel.Visible = (selectedAnnotation.Type == AnnotationType.Rectangle);
+                if (selectedAnnotation.Type == AnnotationType.Rectangle)
                 {
-                    opacityTrackBar.Value = (int)(selectedAnnotation.Opacity * 100);
+                    thicknessTrackBar.Value = (int)selectedAnnotation.LineThickness;
                 }
             }
             else
             {
-                // Hide opacity controls when no annotation is selected
-                opacityTrackBar.Visible = false;
-                opacityLabel.Visible = false;
+                // Reset controls when no annotation is selected
+                annotationPanel.Enabled = true;
+                deleteButton.Enabled = false;
+
+                // Keep controls visible but show current tool settings
+                opacityTrackBar.Value = (int)(currentOpacity * 100);
+                thicknessTrackBar.Value = (int)currentThickness;
+
+                // Update visibility based on current tool type
+                thicknessTrackBar.Visible = (currentAnnotationType == AnnotationType.Rectangle);
+                thicknessLabel.Visible = (currentAnnotationType == AnnotationType.Rectangle);
             }
 
             pictureBox.Invalidate(); // Redraw to show selection state
@@ -1087,17 +1427,14 @@ namespace CapSnip
             if (e.Button == MouseButtons.Left)
             {
                 startPoint = e.Location;
-                this.isDragging = true;
 
                 // Check if clicking on an existing annotation
-                var clickedAnnotation = annotations
-                    .Where(a => a.Contains(e.Location))
-                    .LastOrDefault();
+                selectedAnnotation = annotations
+                    .LastOrDefault(a => a.Contains(e.Location));
 
-                if (clickedAnnotation != null)
+                if (selectedAnnotation != null)
                 {
-                    selectedAnnotation = clickedAnnotation;
-                    currentHandle = clickedAnnotation.GetResizeHandle(e.Location);
+                    currentHandle = selectedAnnotation.GetResizeHandle(e.Location);
 
                     if (currentHandle != ResizeHandle.None)
                     {
@@ -1106,6 +1443,8 @@ namespace CapSnip
                     else
                     {
                         isDragging = true;
+                        originalPosition = e.Location;
+                        originalAnnotation = selectedAnnotation.Clone();
                     }
 
                     // Show appropriate controls based on annotation type
@@ -1113,7 +1452,7 @@ namespace CapSnip
                 }
                 else
                 {
-                    // Start drawing new annotation if no existing annotation was clicked
+                    // Start drawing new annotation
                     isDrawingAnnotation = true;
                     selectionRect = new Rectangle(startPoint, Size.Empty);
                     selectedAnnotation = null;
@@ -1125,62 +1464,122 @@ namespace CapSnip
 
         private void PictureBox_MouseMove(object sender, MouseEventArgs e)
         {
-            if (isResizing && selectedAnnotation != null)
+            if (e.Button == MouseButtons.Left)
             {
-                ResizeSelectedAnnotation(e.Location);
-            }
-            else if (isDragging && selectedAnnotation != null)
-            {
-                MoveSelectedAnnotation(e.Location);
-            }
-            else if (isDrawingAnnotation)
-            {
-                UpdateSelectionRectangle(e.Location);
-            }
+                if (isDrawingAnnotation)
+                {
+                    // Update selection rectangle
+                    int width = e.X - startPoint.X;
+                    int height = e.Y - startPoint.Y;
+                    selectionRect = new Rectangle(
+                        width > 0 ? startPoint.X : e.X,
+                        height > 0 ? startPoint.Y : e.Y,
+                        Math.Abs(width),
+                        Math.Abs(height)
+                    );
+                }
+                else if (isDragging && selectedAnnotation != null)
+                {
+                    // Calculate the offset from the original position
+                    int deltaX = e.X - originalPosition.X;
+                    int deltaY = e.Y - originalPosition.Y;
 
-            UpdateCursor(e.Location);
-            pictureBox.Invalidate();
+                    // Move the annotation by the offset
+                    Point newLocation = new Point(
+                        originalAnnotation.Bounds.X + deltaX,
+                        originalAnnotation.Bounds.Y + deltaY
+                    );
+                    selectedAnnotation.MoveTo(newLocation);
+                }
+                else if (isResizing && selectedAnnotation != null)
+                {
+                    Rectangle newBounds = selectedAnnotation.Bounds;
+                    Point mousePoint = e.Location;
+
+                    // Adjust the bounds based on which handle is being dragged
+                    switch (currentHandle)
+                    {
+                        case ResizeHandle.TopLeft:
+                            newBounds = new Rectangle(
+                                mousePoint.X,
+                                mousePoint.Y,
+                                selectedAnnotation.Bounds.Right - mousePoint.X,
+                                selectedAnnotation.Bounds.Bottom - mousePoint.Y
+                            );
+                            break;
+                        case ResizeHandle.TopRight:
+                            newBounds = new Rectangle(
+                                selectedAnnotation.Bounds.Left,
+                                mousePoint.Y,
+                                mousePoint.X - selectedAnnotation.Bounds.Left,
+                                selectedAnnotation.Bounds.Bottom - mousePoint.Y
+                            );
+                            break;
+                        case ResizeHandle.BottomLeft:
+                            newBounds = new Rectangle(
+                                mousePoint.X,
+                                selectedAnnotation.Bounds.Top,
+                                selectedAnnotation.Bounds.Right - mousePoint.X,
+                                mousePoint.Y - selectedAnnotation.Bounds.Top
+                            );
+                            break;
+                        case ResizeHandle.BottomRight:
+                            newBounds = new Rectangle(
+                                selectedAnnotation.Bounds.Left,
+                                selectedAnnotation.Bounds.Top,
+                                mousePoint.X - selectedAnnotation.Bounds.Left,
+                                mousePoint.Y - selectedAnnotation.Bounds.Top
+                            );
+                            break;
+                    }
+
+                    // Ensure width and height are positive
+                    if (newBounds.Width > 0 && newBounds.Height > 0)
+                    {
+                        selectedAnnotation.Resize(newBounds);
+                    }
+                }
+
+                pictureBox.Invalidate();
+            }
         }
-
 
         // Update your PictureBox_MouseUp method to include opacity
         private void PictureBox_MouseUp(object sender, MouseEventArgs e)
         {
-            if (isDrawingAnnotation)
+            if (e.Button == MouseButtons.Left)
             {
-                isDrawingAnnotation = false;
-                if (selectionRect.Width > 0 && selectionRect.Height > 0)
+                if (isDrawingAnnotation && selectionRect.Width > 0 && selectionRect.Height > 0)
                 {
-                    var annotation = new Annotation(
+                    // Create new annotation
+                    var newAnnotation = new Annotation(
                         selectionRect,
                         currentColor,
                         currentAnnotationType,
-                        currentAnnotationType == AnnotationType.Highlighter ? opacityTrackBar.Value / 100f : 1f
+                        currentOpacityy,
+                        thicknessTrackBar.Value  // Include current thickness
                     );
-
-                    var addAnnotationCommand = new AddAnnotationCommand(
-                        annotations,
-                        annotation
-                    );
-
-                    undoRedoManager.ExecuteCommand(addAnnotationCommand);
-                    RedrawAnnotations();
-                    pictureBox.Invalidate();
-                    UpdateUndoRedoButtons();
-                    CopyImageToClipboard();
+                    annotations.Add(newAnnotation);
+                    selectedAnnotation = newAnnotation;
                 }
-            }
+                else if (isDragging && selectedAnnotation != null)
+                {
+                    // Create and execute move command for undo/redo
+                    var command = new MoveAnnotationCommand(
+                        selectedAnnotation,
+                        new Point(originalAnnotation.Bounds.X, originalAnnotation.Bounds.Y),
+                        new Point(selectedAnnotation.Bounds.X, selectedAnnotation.Bounds.Y)
+                    );
+                    undoRedoManager.ExecuteCommand(command);
+                }
 
-            // Reset all interaction flags
-            isDragging = false;
-            isResizing = false;
-            isDrawingAnnotation = false;
-            currentHandle = ResizeHandle.None;
+                // Reset states
+                isDrawingAnnotation = false;
+                isDragging = false;
+                isResizing = false;
+                currentHandle = ResizeHandle.None;
 
-            // Ensure the cursor is reset
-            if (selectedAnnotation == null)
-            {
-                this.Cursor = Cursors.Default;
+                pictureBox.Invalidate();
             }
         }
 
@@ -1200,44 +1599,43 @@ namespace CapSnip
             {
                 if (annotation.Type == AnnotationType.Highlighter)
                 {
-                    DrawSoftHighlight(e.Graphics, annotation.Rectangle, annotation.Color, annotation.Opacity);
+                    DrawSoftHighlight(e.Graphics, annotation.Bounds, annotation.Color, annotation.Opacity);
                 }
                 else
                 {
-                    using (Pen pen = new Pen(annotation.Color, 2))
+                    using (Pen pen = new Pen(annotation.Color, annotation.LineThickness))
                     {
-                        e.Graphics.DrawRectangle(pen, annotation.Rectangle);
+                        e.Graphics.DrawRectangle(pen, annotation.Bounds);
                     }
                 }
 
                 // Draw selection indicator if this annotation is selected
                 if (annotation == selectedAnnotation)
                 {
-                    using (Pen selectionPen = new Pen(Color.FromArgb(128, 0, 120, 215), 1))
-                    {
-                        selectionPen.DashStyle = DashStyle.Dash;
-                        Rectangle selectionBounds = annotation.Rectangle;
-                        selectionBounds.Inflate(2, 2); // Make selection slightly larger
-                        e.Graphics.DrawRectangle(selectionPen, selectionBounds);
-                    }
+                    DrawSelectionIndicator(e.Graphics, annotation);
                 }
             }
 
-            // Draw the current selection rectangle
+            // Draw the current selection rectangle if we're drawing a new annotation
             if (isDrawingAnnotation && selectionRect.Width > 0 && selectionRect.Height > 0)
             {
-                if (currentAnnotationType == AnnotationType.Highlighter)
+                using (Pen pen = new Pen(currentColor, currentThickness))
                 {
-                    float currentOpacity = opacityTrackBar.Value / 100f;
-                    DrawSoftHighlight(e.Graphics, selectionRect, currentColor, currentOpacity);
-                }
-                else
-                {
-                    using (Pen pen = new Pen(currentColor, 2))
+                    if (currentAnnotationType == AnnotationType.Highlighter)
+                    {
+                        DrawSoftHighlight(e.Graphics, selectionRect, currentColor, currentOpacity);
+                    }
+                    else
                     {
                         e.Graphics.DrawRectangle(pen, selectionRect);
                     }
                 }
+            }
+
+            // Draw resize handles for selected annotation
+            if (selectedAnnotation != null)
+            {
+                DrawResizeHandles(e.Graphics, selectedAnnotation.Bounds);
             }
         }
 
@@ -1245,72 +1643,104 @@ namespace CapSnip
         {
             if (selectedAnnotation != null)
             {
-                opacityTrackBar.Visible = selectedAnnotation.Type == AnnotationType.Highlighter;
-                opacityLabel.Visible = selectedAnnotation.Type == AnnotationType.Highlighter;
-                if (selectedAnnotation.Type == AnnotationType.Highlighter)
-                {
-                    opacityTrackBar.Value = (int)(selectedAnnotation.Opacity * 100);
-                }
+                // Enable all annotation controls
+                annotationPanel.Visible = true;
+                annotationPanel.Enabled = true;
+                deleteButton.Enabled = true;
 
-                // Add thickness control visibility here
-                thicknessTrackBar.Visible = selectedAnnotation.Type == AnnotationType.Rectangle;
-                thicknessLabel.Visible = selectedAnnotation.Type == AnnotationType.Rectangle;
+                // Update color button to show current annotation color
+                colorButton.BackColor = selectedAnnotation.Color;
+
+                // Update opacity control
+                opacityTrackBar.Value = (int)(selectedAnnotation.Opacity * 100);
+                opacityLabel.Text = $"Opacity: {opacityTrackBar.Value}%";
+
+                // Update annotation type selection
+                rectangleButton.Checked = (selectedAnnotation.Type == AnnotationType.Rectangle);
+                highlighterButton.Checked = (selectedAnnotation.Type == AnnotationType.Highlighter);
+
+                // Show/hide specific controls based on annotation type
                 if (selectedAnnotation.Type == AnnotationType.Rectangle)
                 {
+                    thicknessPanel.Visible = true;
                     thicknessTrackBar.Value = (int)selectedAnnotation.LineThickness;
+                    thicknessLabel.Text = $"Thickness: {thicknessTrackBar.Value}";
                 }
+                else if (selectedAnnotation.Type == AnnotationType.Highlighter)
+                {
+                    // Highlighter-specific controls
+                    thicknessPanel.Visible = false;
+                }
+
+                // Update the current tool settings to match the selected annotation
+                currentColor = selectedAnnotation.Color;
+                currentOpacity = selectedAnnotation.Opacity;
+                currentAnnotationType = selectedAnnotation.Type;
             }
             else
             {
-                opacityTrackBar.Visible = false;
-                opacityLabel.Visible = false;
-                thicknessTrackBar.Visible = false;
-                thicknessLabel.Visible = false;
+                // No annotation selected - reset controls to defaults
+                annotationPanel.Visible = true;
+                annotationPanel.Enabled = true;
+                deleteButton.Enabled = false;
+
+                // Reset type selection to current tool settings
+                rectangleButton.Checked = (currentAnnotationType == AnnotationType.Rectangle);
+                highlighterButton.Checked = (currentAnnotationType == AnnotationType.Highlighter);
+
+                // Update controls to show current tool settings
+                colorButton.BackColor = currentColor;
+                opacityTrackBar.Value = (int)(currentOpacity * 100);
+                opacityLabel.Text = $"Opacity: {opacityTrackBar.Value}%";
+
+                // Show/hide specific controls based on current tool type
+                if (currentAnnotationType == AnnotationType.Rectangle)
+                {
+                    thicknessPanel.Visible = true;
+                    thicknessTrackBar.Value = (int)(currentOpacity * 100);
+                    thicknessLabel.Text = $"Thickness: {thicknessTrackBar.Value}%";
+                }
+                else if (currentAnnotationType == AnnotationType.Highlighter)
+                {
+                    thicknessPanel.Visible = false;
+                }
             }
+
+            // Force control updates
+            annotationPanel.Refresh();
         }
 
         public class AnnotationPropertyChangeCommand : ICommand
         {
-            private Annotation annotation;
-            private string propertyName;
-            private object oldValue;
-            private object newValue;
+            private readonly Annotation annotation;
+            private readonly Annotation oldState;
+            private readonly Annotation newState;
 
-            public AnnotationPropertyChangeCommand(Annotation annotation, string propertyName, object oldValue, object newValue)
+            public AnnotationPropertyChangeCommand(Annotation annotation, Annotation oldState, Annotation newState)
             {
                 this.annotation = annotation;
-                this.propertyName = propertyName;
-                this.oldValue = oldValue;
-                this.newValue = newValue;
+                this.oldState = oldState;
+                this.newState = newState;
             }
 
             public void Execute()
             {
-                SetPropertyValue(newValue);
+                // Apply all properties from newState
+                ApplyState(newState);
             }
 
             public void Undo()
             {
-                SetPropertyValue(oldValue);
+                // Restore all properties from oldState
+                ApplyState(oldState);
             }
 
-            private void SetPropertyValue(object value)
+            private void ApplyState(Annotation state)
             {
-                switch (propertyName)
-                {
-                    case "Rectangle":
-                        annotation.Rectangle = (Rectangle)value;
-                        break;
-                    case "Color":
-                        annotation.Color = (Color)value;
-                        break;
-                    case "Opacity":
-                        annotation.Opacity = (float)value;
-                        break;
-                    case "LineThickness":
-                        annotation.LineThickness = (float)value;
-                        break;
-                }
+                annotation.Resize(state.Bounds);
+                annotation.UpdateProperties(state.Color, state.Opacity);
+                annotation.UpdateLineThickness(state.LineThickness);
+                // Add any other properties that need to be updated
             }
         }
 
@@ -1415,15 +1845,21 @@ namespace CapSnip
                             (int)(25 * annotation.Opacity),
                             annotation.Color)))
                         {
-                            g.FillRectangle(brush, annotation.Rectangle);
+                            g.FillRectangle(brush, annotation.Bounds);
                         }
                     }
                     else // Rectangle
                     {
-                        using (Pen pen = new Pen(annotation.Color, 2))
+                        using (Pen pen = new Pen(annotation.Color, annotation.LineThickness))
                         {
-                            g.DrawRectangle(pen, annotation.Rectangle);
+                            g.DrawRectangle(pen, annotation.Bounds);
                         }
+                    }
+
+                    // Draw resize handles if this is the selected annotation
+                    if (annotation == selectedAnnotation)
+                    {
+                        DrawResizeHandles(g, annotation.Bounds);
                     }
                 }
             }
@@ -1451,14 +1887,14 @@ namespace CapSnip
                     {
                         if (annotation.Type == AnnotationType.Highlighter)
                         {
-                            DrawSoftHighlight(g, annotation.Rectangle, annotation.Color, annotation.Opacity);
+                            DrawSoftHighlight(g, annotation.Bounds, annotation.Color, annotation.Opacity);
                         }
                         else
                         {
                             // Regular rectangle annotation
-                            using (Pen pen = new Pen(annotation.Color, 2))
+                            using (Pen pen = new Pen(annotation.Color, annotation.LineThickness))
                             {
-                                g.DrawRectangle(pen, annotation.Rectangle);
+                                g.DrawRectangle(pen, annotation.Bounds);
                             }
                         }
                     }
@@ -1468,28 +1904,45 @@ namespace CapSnip
             }
         }
 
-     
+
 
         private Tool currentTool = Tool.Rectangle;
 
-        // Update your DrawSoftHighlight method to use the trackbar value
-        private void DrawSoftHighlight(Graphics g, Rectangle rect, Color color, float opacity)
-        {
-            using (GraphicsPath path = new GraphicsPath())
-            {
-                path.AddRectangle(rect);
-                using (PathGradientBrush pgBrush = new PathGradientBrush(path))
-                {
-                    // Use the specific opacity value for this highlight
-                    int centerAlpha = (int)(160 * opacity);
-                    int surroundAlpha = (int)(100 * opacity);
 
-                    pgBrush.CenterColor = Color.FromArgb(centerAlpha, color);
-                    Color[] surroundColors = new Color[] { Color.FromArgb(surroundAlpha, color) };
-                    pgBrush.SurroundColors = surroundColors;
-                    pgBrush.FocusScales = new PointF(0.95f, 0.85f);
-                    g.FillPath(pgBrush, path);
+        // Helper method for drawing resize handles
+        // Make sure this matches your current DrawResizeHandles implementation
+        private void DrawResizeHandles(Graphics g, Rectangle bounds)
+        {
+            const int handleSize = 6;
+            var handleColor = Color.White;
+            var handleBorderColor = Color.Black;
+
+            void DrawHandle(int x, int y)
+            {
+                var handleRect = new Rectangle(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+                using (var brush = new SolidBrush(handleColor))
+                using (var pen = new Pen(handleBorderColor, 1))
+                {
+                    g.FillRectangle(brush, handleRect);
+                    g.DrawRectangle(pen, handleRect);
                 }
+            }
+
+            // Draw handles at all corners
+            DrawHandle(bounds.Left, bounds.Top);           // Top-left
+            DrawHandle(bounds.Right, bounds.Top);          // Top-right
+            DrawHandle(bounds.Left, bounds.Bottom);        // Bottom-left
+            DrawHandle(bounds.Right, bounds.Bottom);       // Bottom-right
+        }
+
+        // Update your DrawSoftHighlight method to use the trackbar value
+        private void DrawSoftHighlight(Graphics g, Rectangle bounds, Color color, float opacity)
+        {
+            using (var brush = new SolidBrush(Color.FromArgb(
+                (int)(25 * opacity),
+                color)))
+            {
+                g.FillRectangle(brush, bounds);
             }
         }
         private void ClearAllButton_Click(object sender, EventArgs e)
@@ -1516,13 +1969,18 @@ namespace CapSnip
     }
 
 
+    // Make sure you have this enum defined
     public enum ResizeHandle
     {
         None,
-        TopLeft, TopRight,
-        BottomLeft, BottomRight,
-        Top, Bottom,
-        Left, Right
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight,
+        Top,
+        Bottom,
+        Left,
+        Right
     }
     public class CaptureForm : Form
     {
