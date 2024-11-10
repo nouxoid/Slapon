@@ -121,6 +121,8 @@ namespace CapSnip
             UpdateUndoRedoButtons();
             this.BackColor = Color.White;
         }
+
+
         public bool CanUndo => undoRedoManager.CanUndo;
         public bool CanRedo => undoRedoManager.CanRedo;
 
@@ -470,8 +472,8 @@ namespace CapSnip
             };
 
             // Create the trackbar with fully qualified name
-            thicknessTrackBar = new System.Windows.Forms.TrackBar();
-            {
+            thicknessTrackBar = new System.Windows.Forms.TrackBar
+            {   // Changed this line - removed extra {
                 Minimum = 1,
                 Maximum = 10,
                 Value = 2,
@@ -479,7 +481,7 @@ namespace CapSnip
                 Visible = false,
                 TickFrequency = 1,
                 TickStyle = System.Windows.Forms.TickStyle.Both
-            };
+            };  // Object initializer ends here
 
             thicknessTrackBar.ValueChanged += ThicknessTrackBar_ValueChanged;
 
@@ -1320,7 +1322,7 @@ namespace CapSnip
                 TickStyle = TickStyle.Both
             };
 
-            TrackBar.ValueChanged += (s, e) =>
+            thicknessTrackBar.ValueChanged += (s, e) =>
             {
                 if (selectedAnnotation != null && selectedAnnotation.Type == AnnotationType.Rectangle)
                 {
@@ -1514,7 +1516,9 @@ namespace CapSnip
     {
         private Point startPoint;
         private Rectangle selectionRect;
-        
+        private bool isDragging;
+
+
         public Image CapturedImage { get; private set; }
 
         public CaptureForm()
