@@ -1170,6 +1170,18 @@ namespace CapSnip
                     CopyImageToClipboard();
                 }
             }
+
+            // Reset all interaction flags
+            isDragging = false;
+            isResizing = false;
+            isDrawingAnnotation = false;
+            currentHandle = ResizeHandle.None;
+
+            // Ensure the cursor is reset
+            if (selectedAnnotation == null)
+            {
+                this.Cursor = Cursors.Default;
+            }
         }
 
         private void PictureBox_Paint(object sender, PaintEventArgs e)
