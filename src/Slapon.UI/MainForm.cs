@@ -1,4 +1,4 @@
-namespace Slapon.UI;
+﻿namespace Slapon.UI;
 
 using Slapon.Core.Interfaces;
 using Slapon.Core.Models;
@@ -6,11 +6,13 @@ using Slapon.Core.Services;
 using System.Drawing.Imaging;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using Slapon.UI.Forms;
 
 public partial class MainForm : Form
 {
     private readonly IAnnotationService _annotationService;
     private readonly IAnnotationFactory _annotationFactory;
+    private Panel scrollablePanel;
     private Bitmap? _currentImage;
     private PointF _startPoint;
     private bool _isDrawing = false;
@@ -18,6 +20,8 @@ public partial class MainForm : Form
     private AnnotationType _currentType = AnnotationType.Rectangle;
     private bool _isDragging = false;
     private PictureBox pictureBox;
+    private readonly ScreenCaptureService _screenCaptureService;
+
 
     public MainForm()
     {
@@ -44,46 +48,107 @@ public partial class MainForm : Form
     }
     private void SetupUI()
     {
-        // Create and configure PictureBox
+        // Create and configure PictureBox with padding
         pictureBox = new PictureBox
         {
             Dock = DockStyle.Fill,
-            SizeMode = PictureBoxSizeMode.AutoSize
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Margin = new Padding(16)
         };
 
-        // Create toolbar
+        var panel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(16),
+        };
+        panel.Controls.Add(pictureBox);
+
+        // Create modern toolbar
         var toolStrip = new ToolStrip
         {
-            Dock = DockStyle.Top  // Add this line to dock the toolbar at the top
+            Dock = DockStyle.Top,
+            RenderMode = ToolStripRenderMode.System,
+            Padding = new Padding(8),
+            BackColor = Color.White,
+            GripStyle = ToolStripGripStyle.Hidden
         };
 
-        var openButton = new ToolStripButton("Open Image");
-        openButton.Click += OpenImage;
+        // Screenshot button
+        var screenshotButton = CreateToolStripButton("Screenshot", "📷");
+        screenshotButton.Click += StartScreenCapture;
 
-        var saveButton = new ToolStripButton("Save");
-        saveButton.Click += SaveImage;
+        // Rectangle annotation button
+        var rectangleButton = CreateToolStripButton("Rectangle", "⬜");
 
-        var colorButton = new ToolStripButton("Color");
+        // Highlighter button
+        var highlighterButton = CreateToolStripButton("Highlight", "🖊️");
+
+        // Line button
+        var lineButton = CreateToolStripButton("Line", "📏");
+
+        // Text button
+        var textButton = CreateToolStripButton("Text", "T");
+
+        // Color button
+        var colorButton = CreateToolStripButton("Color", "🎨");
         colorButton.Click += ChangeColor;
 
         toolStrip.Items.AddRange(new ToolStripItem[]
         {
-        openButton,
-        saveButton,
+        screenshotButton,
+        new ToolStripSeparator(),
+        rectangleButton,
+        highlighterButton,
+        lineButton,
+        textButton,
         new ToolStripSeparator(),
         colorButton
         });
 
-        // Layout
-        Controls.Add(pictureBox);
+        Controls.Add(panel);
         Controls.Add(toolStrip);
-        // Remove the SendToFront() call and use proper docking instead
+    }
 
-        // Wire up picture box events
-        pictureBox.Paint += PictureBox_Paint;
-        pictureBox.MouseDown += PictureBox_MouseDown;
-        pictureBox.MouseMove += PictureBox_MouseMove;
-        pictureBox.MouseUp += PictureBox_MouseUp;
+    private ToolStripButton CreateToolStripButton(string text, string symbol)
+    {
+        return new ToolStripButton
+        {
+            Text = text,
+            DisplayStyle = ToolStripItemDisplayStyle.Text,
+            Font = new Font("Segoe UI", 14),
+            Padding = new Padding(8),
+            AutoSize = true
+        };
+    }
+
+    private async void StartScreenCapture(object? sender, EventArgs e)
+    {
+        this.WindowState = FormWindowState.Minimized;
+        await Task.Delay(200); // Give time for window to minimize
+
+        var captureService = new ScreenCaptureService();
+        var screenshot = captureService.CaptureScreen();
+
+        using var overlay = new SelectionOverlayForm(screenshot);
+        if (overlay.ShowDialog() == DialogResult.OK)
+        {
+            var region = overlay.SelectionBounds;
+            var capturedImage = captureService.CaptureRegion(region);
+
+            _currentImage?.Dispose();
+            _currentImage = capturedImage;
+            pictureBox.Image = _currentImage;
+
+            // Resize form to fit image with padding
+            var padding = 32; // 16px on each side
+            var width = Math.Min(Screen.PrimaryScreen.WorkingArea.Width - padding, capturedImage.Width + padding);
+            var height = Math.Min(Screen.PrimaryScreen.WorkingArea.Height - padding, capturedImage.Height + padding);
+
+            this.ClientSize = new Size(width, height);
+            this.CenterToScreen();
+        }
+
+        this.WindowState = FormWindowState.Normal;
     }
 
     private void OpenImage(object? sender, EventArgs e)
