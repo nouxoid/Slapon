@@ -5,20 +5,23 @@ namespace Slapon.Core.Models;
 
 public class HighlightAnnotation : IAnnotation
 {
+    public Guid Id { get; set; }
     public RectangleF Bounds { get; set; }
     public Color Color { get; set; }
     public bool IsSelected { get; set; }
-    private const float HIGHLIGHT_OPACITY = 0.4f;
+    public float Opacity { get; set; } // Add Opacity property
 
-    public HighlightAnnotation(RectangleF bounds, Color color)
+    public HighlightAnnotation(RectangleF bounds, Color color, float opacity = 0.4f)
     {
+        Id = Guid.NewGuid();
         Bounds = bounds;
         Color = color;
+        Opacity = opacity;
     }
 
     public void Draw(Graphics g)
     {
-        using (var highlightBrush = new SolidBrush(Color.FromArgb((int)(255 * HIGHLIGHT_OPACITY), Color)))
+        using (var highlightBrush = new SolidBrush(Color.FromArgb((int)(255 * Opacity), Color)))
         {
             g.FillRectangle(highlightBrush, Bounds);
         }
@@ -37,8 +40,22 @@ public class HighlightAnnotation : IAnnotation
         return Bounds.Contains(point);
     }
 
+    public bool Contains(Point point)
+    {
+        return Bounds.Contains(point);
+    }
+
     public void MoveTo(PointF location)
     {
         Bounds = new RectangleF(location, Bounds.Size);
+    }
+
+    public IAnnotation Clone()
+    {
+        return new HighlightAnnotation(Bounds, Color, Opacity)
+        {
+            Id = this.Id,
+            IsSelected = this.IsSelected
+        };
     }
 }

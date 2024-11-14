@@ -10,6 +10,21 @@ using Slapon.UI.Forms;
 
 public partial class MainForm : Form
 {
+
+    private enum AnnotationTool
+    {
+        None,
+        Rectangle,
+        Highlight,
+        Line,
+        Text
+    }
+
+    private AnnotationTool _currentTool = AnnotationTool.None;
+    private Point? _drawStart;
+    private IAnnotation? _currentAnnotation;
+    private readonly Color _defaultHighlightColor = Color.Yellow;
+
     private readonly IAnnotationService _annotationService;
     private readonly IAnnotationFactory _annotationFactory;
     private Panel scrollablePanel;
@@ -88,6 +103,7 @@ public partial class MainForm : Form
 
         // Highlighter button
         var highlighterButton = CreateToolStripButton("Highlight");
+        highlighterButton.Click += (s, e) => _currentTool = AnnotationTool.Highlight;
 
         // Line button
         var lineButton = CreateToolStripButton("Line");
@@ -299,7 +315,7 @@ public partial class MainForm : Form
 
         if (_isDrawing)
         {
-            var rect = GetRectangle(_startPoint, pictureBox.PointToClient(Cursor.Position));
+            var rect = GetRectangle(Point.Round(_startPoint), pictureBox.PointToClient(Cursor.Position));
             using var pen = new Pen(_currentColor, 2f) { DashStyle = DashStyle.Dash };
             e.Graphics.DrawRectangle(pen, rect);
         }
@@ -309,67 +325,94 @@ public partial class MainForm : Form
     {
         if (e.Button == MouseButtons.Left)
         {
-            var clickPoint = new PointF(e.X, e.Y);
-            var clickedAnnotation = _annotationService.GetAnnotationAt(clickPoint);
+            _drawStart = e.Location;
 
-            if (clickedAnnotation != null)
-            {
-                _annotationService.SelectAnnotation(clickedAnnotation);
-                _isDragging = true;
-            }
-            else
-            {
-                _isDrawing = true;
-                _startPoint = clickPoint;
-                _annotationService.SelectAnnotation(null);
-            }
-            pictureBox.Refresh();
+            // Clear selection when starting new annotation
+            _annotationService.SelectAnnotation(null);
+            pictureBox.Invalidate();
         }
     }
 
+
     private void PictureBox_MouseMove(object? sender, MouseEventArgs e)
     {
-        if (_isDrawing)
+        if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
-            pictureBox.Refresh();
-        }
-        else if (e.Button == MouseButtons.Left && _annotationService.SelectedAnnotation != null)
-        {
-            _annotationService.MoveSelectedAnnotation(new PointF(e.X, e.Y));
+            var rectangle = GetRectangle(_drawStart.Value, e.Location);
+
+            // Remove the previous preview annotation if it exists
+            if (_currentAnnotation != null)
+            {
+                _annotationService.RemoveAnnotation(_currentAnnotation);
+            }
+
+            // Create and add the new preview annotation with default opacity
+            _currentAnnotation = _currentTool switch
+            {
+                AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f),
+                AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f),
+                _ => null
+            };
+
+            if (_currentAnnotation != null)
+            {
+                _annotationService.AddAnnotation(_currentAnnotation);
+            }
+
+            pictureBox.Invalidate();
         }
     }
 
     private void PictureBox_MouseUp(object? sender, MouseEventArgs e)
     {
-        if (e.Button == MouseButtons.Left)
+        if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
-            if (_isDrawing)
+            var rectangle = GetRectangle(_drawStart.Value, e.Location);
+
+            // Only create annotation if the rectangle has some size
+            if (rectangle.Width > 1 && rectangle.Height > 1)
             {
-                var endPoint = new PointF(e.X, e.Y);
-                var bounds = GetRectangle(_startPoint, endPoint);
-                var annotation = new RectangleAnnotation(bounds, _currentColor, 1.0f);
-                _annotationService.AddAnnotation(annotation);
-                _isDrawing = false;
+                IAnnotation? annotation = _currentTool switch
+                {
+                    AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f),
+                    AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f),
+                    _ => null
+                };
+
+                if (annotation != null)
+                {
+                    // Remove the preview annotation
+                    if (_currentAnnotation != null)
+                    {
+                        _annotationService.RemoveAnnotation(_currentAnnotation);
+                    }
+
+                    // Add the final annotation
+                    _annotationService.AddAnnotation(annotation);
+                    _annotationService.SelectAnnotation(annotation);
+                }
             }
-            _isDragging = false;
-            pictureBox.Refresh();
+
+            _drawStart = null;
+            _currentAnnotation = null;
+            pictureBox.Invalidate();
         }
     }
 
 
-    private static Rectangle GetRectangle(PointF startPoint, PointF endPoint)
+    private static Rectangle GetRectangle(Point start, Point end)
     {
         return new Rectangle(
-            (int)Math.Min(startPoint.X, endPoint.X),
-            (int)Math.Min(startPoint.Y, endPoint.Y),
-            (int)Math.Abs(endPoint.X - startPoint.X),
-            (int)Math.Abs(endPoint.Y - startPoint.Y)
+            Math.Min(start.X, end.X),
+            Math.Min(start.Y, end.Y),
+            Math.Abs(end.X - start.X),
+            Math.Abs(end.Y - start.Y)
         );
     }
 
-    
 
-    
+
+
 
     private void MainForm_Load(object sender, EventArgs e)
     {
