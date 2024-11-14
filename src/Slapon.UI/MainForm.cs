@@ -28,6 +28,7 @@ public partial class MainForm : Form
         InitializeComponent();
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
+        _screenCaptureService = new ScreenCaptureService();
         _annotationService.AnnotationsChanged += (s, e) => pictureBox.Refresh();
         SetupUI();
     }
@@ -59,6 +60,8 @@ public partial class MainForm : Form
         var panel = new Panel
         {
             Dock = DockStyle.Fill,
+            AutoScroll = true,
+            BorderStyle = BorderStyle.None,
             Padding = new Padding(16),
         };
         panel.Controls.Add(pictureBox);
@@ -67,10 +70,11 @@ public partial class MainForm : Form
         var toolStrip = new ToolStrip
         {
             Dock = DockStyle.Top,
-            RenderMode = ToolStripRenderMode.System,
+            RenderMode = ToolStripRenderMode.Professional,
             Padding = new Padding(8),
             BackColor = Color.White,
-            GripStyle = ToolStripGripStyle.Hidden
+            GripStyle = ToolStripGripStyle.Hidden,
+            ImageScalingSize = new Size(24, 24)
         };
 
         // Screenshot button
@@ -114,11 +118,30 @@ public partial class MainForm : Form
         return new ToolStripButton
         {
             Text = text,
-            DisplayStyle = ToolStripItemDisplayStyle.Text,
-            Font = new Font("Segoe UI", 14),
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            Image = CreateIcon(symbol),
+            TextImageRelation = TextImageRelation.ImageAboveText,
+            Font = new Font("Segoe UI", 12),
             Padding = new Padding(8),
-            AutoSize = true
+            AutoSize = true,
+            ForeColor = Color.Black,
+            BackColor = Color.White,
+            //FlatStyle = FlatStyle.Flat
         };
+    }
+
+    private Image CreateIcon(string symbol)
+    {
+        var bitmap = new Bitmap(24, 24);
+        using (var g = Graphics.FromImage(bitmap))
+        {
+            g.Clear(Color.Transparent);
+            using (var font = new Font("Calibri", 12))
+            {
+                g.DrawString(symbol, font, Brushes.Black, new PointF(-4, -4));
+            }
+        }
+        return bitmap;
     }
 
     private async void StartScreenCapture(object? sender, EventArgs e)
