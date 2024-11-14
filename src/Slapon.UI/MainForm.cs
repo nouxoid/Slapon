@@ -10,6 +10,21 @@ using Slapon.UI.Forms;
 
 public partial class MainForm : Form
 {
+
+    private enum AnnotationTool
+    {
+        None,
+        Rectangle,
+        Highlight,
+        Line,
+        Text
+    }
+
+    private AnnotationTool _currentTool = AnnotationTool.None;
+    private Point? _drawStart;
+    private IAnnotation? _currentAnnotation;
+    private readonly Color _defaultHighlightColor = Color.Yellow;
+
     private readonly IAnnotationService _annotationService;
     private readonly IAnnotationFactory _annotationFactory;
     private Panel scrollablePanel;
@@ -22,7 +37,8 @@ public partial class MainForm : Form
     private PictureBox pictureBox;
     private readonly ScreenCaptureService _screenCaptureService;
 
-
+    private ToolStripButton btnRectangleTool;
+    private ToolStripButton btnHighlightTool;
     public MainForm()
     {
         InitializeComponent();
@@ -84,10 +100,12 @@ public partial class MainForm : Form
         screenshotButton.Click += StartScreenCapture;
 
         // Rectangle annotation button
-        var rectangleButton = CreateToolStripButton("Rectangle");
+        btnRectangleTool = CreateToolStripButton("Rectangle");
+        btnRectangleTool.Click += (s, e) => SetActiveTool(AnnotationTool.Rectangle);
 
         // Highlighter button
-        var highlighterButton = CreateToolStripButton("Highlight");
+        btnHighlightTool = CreateToolStripButton("Highlight");
+        btnHighlightTool.Click += (s, e) => SetActiveTool(AnnotationTool.Highlight);
 
         // Line button
         var lineButton = CreateToolStripButton("Line");
@@ -103,8 +121,8 @@ public partial class MainForm : Form
         {
         screenshotButton,
         new ToolStripSeparator(),
-        rectangleButton,
-        highlighterButton,
+        btnRectangleTool,
+        btnHighlightTool,
         lineButton,
         textButton,
         new ToolStripSeparator(),
@@ -119,6 +137,29 @@ public partial class MainForm : Form
         pictureBox.MouseDown += PictureBox_MouseDown;
         pictureBox.MouseMove += PictureBox_MouseMove;
         pictureBox.MouseUp += PictureBox_MouseUp;
+    }
+
+    private void SetActiveTool(AnnotationTool tool)
+    {
+        _currentTool = tool;
+        UpdateToolButtons();
+    }
+
+    private void UpdateToolButtons()
+    {
+        btnRectangleTool.BackColor = (_currentTool == AnnotationTool.Rectangle) ? Color.LightBlue : SystemColors.Control;
+        btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
+        // Repeat for other tools as needed
+    }
+
+    private void BtnRectangleTool_Click(object sender, EventArgs e)
+    {
+        SetActiveTool(AnnotationTool.Rectangle);
+    }
+
+    private void BtnHighlightTool_Click(object sender, EventArgs e)
+    {
+        SetActiveTool(AnnotationTool.Highlight);
     }
 
     private void Panel_Resize(object? sender, EventArgs e)
@@ -299,7 +340,7 @@ public partial class MainForm : Form
 
         if (_isDrawing)
         {
-            var rect = GetRectangle(_startPoint, pictureBox.PointToClient(Cursor.Position));
+            var rect = GetRectangle(Point.Round(_startPoint), pictureBox.PointToClient(Cursor.Position));
             using var pen = new Pen(_currentColor, 2f) { DashStyle = DashStyle.Dash };
             e.Graphics.DrawRectangle(pen, rect);
         }
@@ -309,70 +350,97 @@ public partial class MainForm : Form
     {
         if (e.Button == MouseButtons.Left)
         {
-            var clickPoint = new PointF(e.X, e.Y);
-            var clickedAnnotation = _annotationService.GetAnnotationAt(clickPoint);
+            _drawStart = e.Location;
 
-            if (clickedAnnotation != null)
-            {
-                _annotationService.SelectAnnotation(clickedAnnotation);
-                _isDragging = true;
-            }
-            else
-            {
-                _isDrawing = true;
-                _startPoint = clickPoint;
-                _annotationService.SelectAnnotation(null);
-            }
-            pictureBox.Refresh();
+            // Clear selection when starting new annotation
+            _annotationService.SelectAnnotation(null);
+            pictureBox.Invalidate();
         }
     }
 
-    private void PictureBox_MouseMove(object? sender, MouseEventArgs e)
+
+    private void PictureBox_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_isDrawing)
+        if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
-            pictureBox.Refresh();
-        }
-        else if (e.Button == MouseButtons.Left && _annotationService.SelectedAnnotation != null)
-        {
-            _annotationService.MoveSelectedAnnotation(new PointF(e.X, e.Y));
-        }
-    }
+            var rectangle = GetRectangle(_drawStart.Value, e.Location);
 
-    private void PictureBox_MouseUp(object? sender, MouseEventArgs e)
-    {
-        if (e.Button == MouseButtons.Left)
-        {
-            if (_isDrawing)
+            // Remove the previous preview annotation if it exists
+            if (_currentAnnotation != null)
             {
-                var endPoint = new PointF(e.X, e.Y);
-                var bounds = GetRectangle(_startPoint, endPoint);
-                var annotation = new RectangleAnnotation(bounds, _currentColor, 1.0f);
-                _annotationService.AddAnnotation(annotation);
-                _isDrawing = false;
+                _annotationService.RemoveAnnotation(_currentAnnotation);
             }
-            _isDragging = false;
-            pictureBox.Refresh();
+
+            // Create and add the new preview annotation with default opacity
+            _currentAnnotation = _currentTool switch
+            {
+                AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f),
+                AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f),
+                _ => null
+            };
+
+            if (_currentAnnotation != null)
+            {
+                _annotationService.AddAnnotation(_currentAnnotation);
+            }
+
+            pictureBox.Invalidate();
+        }
+    }
+
+    private void PictureBox_MouseUp(object sender, MouseEventArgs e)
+    {
+        if (e.Button == MouseButtons.Left && _drawStart.HasValue)
+        {
+            var rectangle = GetRectangle(_drawStart.Value, e.Location);
+
+            // Only create annotation if the rectangle has some size
+            if (rectangle.Width > 1 && rectangle.Height > 1)
+            {
+                IAnnotation? annotation = _currentTool switch
+                {
+                    AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f),
+                    AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f),
+                    _ => null
+                };
+
+                if (annotation != null)
+                {
+                    // Remove the preview annotation
+                    if (_currentAnnotation != null)
+                    {
+                        _annotationService.RemoveAnnotation(_currentAnnotation);
+                    }
+
+                    // Add the final annotation
+                    _annotationService.AddAnnotation(annotation);
+                    _annotationService.SelectAnnotation(annotation);
+                }
+            }
+
+            _drawStart = null;
+            _currentAnnotation = null;
+            pictureBox.Invalidate();
         }
     }
 
 
-    private static Rectangle GetRectangle(PointF startPoint, PointF endPoint)
+    private static Rectangle GetRectangle(Point start, Point end)
     {
         return new Rectangle(
-            (int)Math.Min(startPoint.X, endPoint.X),
-            (int)Math.Min(startPoint.Y, endPoint.Y),
-            (int)Math.Abs(endPoint.X - startPoint.X),
-            (int)Math.Abs(endPoint.Y - startPoint.Y)
+            Math.Min(start.X, end.X),
+            Math.Min(start.Y, end.Y),
+            Math.Abs(end.X - start.X),
+            Math.Abs(end.Y - start.Y)
         );
     }
 
-    
 
     
+
 
     private void MainForm_Load(object sender, EventArgs e)
     {
-
+        UpdateToolButtons();
     }
 }
