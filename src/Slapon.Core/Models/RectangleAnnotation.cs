@@ -31,7 +31,6 @@ public class RectangleAnnotation : BaseAnnotation
 
     public override bool Contains(PointF point)
     {
-        // Create slightly larger bounds for easier selection
         var inflatedBounds = Bounds;
         inflatedBounds.Inflate(BorderThickness, BorderThickness);
         return inflatedBounds.Contains(point);
@@ -39,7 +38,6 @@ public class RectangleAnnotation : BaseAnnotation
 
     public override bool Contains(Point point)
     {
-        // Convert Point to PointF and use the existing Contains method
         return Contains(new PointF(point.X, point.Y));
     }
 

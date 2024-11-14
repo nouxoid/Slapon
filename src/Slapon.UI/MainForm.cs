@@ -334,7 +334,7 @@ public partial class MainForm : Form
     }
 
 
-    private void PictureBox_MouseMove(object? sender, MouseEventArgs e)
+    private void PictureBox_MouseMove(object sender, MouseEventArgs e)
     {
         if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
@@ -363,7 +363,7 @@ public partial class MainForm : Form
         }
     }
 
-    private void PictureBox_MouseUp(object? sender, MouseEventArgs e)
+    private void PictureBox_MouseUp(object sender, MouseEventArgs e)
     {
         if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
@@ -411,11 +411,32 @@ public partial class MainForm : Form
     }
 
 
+    private void SetActiveTool(AnnotationTool tool)
+    {
+        _currentTool = tool;
+        UpdateToolButtons();
+    }
 
+    private void UpdateToolButtons()
+    {
+        btnRectangleTool.BackColor = (_currentTool == AnnotationTool.Rectangle) ? Color.LightBlue : SystemColors.Control;
+        btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
+        // Repeat for other tools as needed
+    }
+
+    private void BtnRectangleTool_Click(object sender, EventArgs e)
+    {
+        SetActiveTool(AnnotationTool.Rectangle);
+    }
+
+    private void BtnHighlightTool_Click(object sender, EventArgs e)
+    {
+        SetActiveTool(AnnotationTool.Highlight);
+    }
 
 
     private void MainForm_Load(object sender, EventArgs e)
     {
-
+        UpdateToolButtons();
     }
 }
