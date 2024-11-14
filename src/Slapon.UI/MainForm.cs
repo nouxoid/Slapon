@@ -45,7 +45,7 @@ public partial class MainForm : Form
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
         _screenCaptureService = new ScreenCaptureService();
-        _annotationService.AnnotationsChanged += (s, e) => pictureBox.Refresh();
+        _annotationService.AnnotationsChanged += (s, e) => pictureBox.Invalidate();
         SetupUI();
     }
 
@@ -72,6 +72,11 @@ public partial class MainForm : Form
             Dock = DockStyle.None // Remove Dock setting to allow scrolling
         };
 
+        // Enable double buffering for PictureBox using reflection
+        typeof(PictureBox).InvokeMember("DoubleBuffered",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
+            null, pictureBox, new object[] { true });
+
         var panel = new Panel
         {
             Dock = DockStyle.Fill,
@@ -79,6 +84,12 @@ public partial class MainForm : Form
             BorderStyle = BorderStyle.None,
             Padding = new Padding(16),
         };
+
+        // Enable double buffering for Panel using reflection
+        typeof(Panel).InvokeMember("DoubleBuffered",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
+            null, panel, new object[] { true });
+
 
         // Add resize handler to center the image
         panel.Resize += Panel_Resize;
