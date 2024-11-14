@@ -37,7 +37,8 @@ public partial class MainForm : Form
     private PictureBox pictureBox;
     private readonly ScreenCaptureService _screenCaptureService;
 
-
+    private ToolStripButton btnRectangleTool;
+    private ToolStripButton btnHighlightTool;
     public MainForm()
     {
         InitializeComponent();
@@ -99,11 +100,12 @@ public partial class MainForm : Form
         screenshotButton.Click += StartScreenCapture;
 
         // Rectangle annotation button
-        var rectangleButton = CreateToolStripButton("Rectangle");
+        btnRectangleTool = CreateToolStripButton("Rectangle");
+        btnRectangleTool.Click += (s, e) => SetActiveTool(AnnotationTool.Rectangle);
 
         // Highlighter button
-        var highlighterButton = CreateToolStripButton("Highlight");
-        highlighterButton.Click += (s, e) => _currentTool = AnnotationTool.Highlight;
+        btnHighlightTool = CreateToolStripButton("Highlight");
+        btnHighlightTool.Click += (s, e) => SetActiveTool(AnnotationTool.Highlight);
 
         // Line button
         var lineButton = CreateToolStripButton("Line");
@@ -119,8 +121,8 @@ public partial class MainForm : Form
         {
         screenshotButton,
         new ToolStripSeparator(),
-        rectangleButton,
-        highlighterButton,
+        btnRectangleTool,
+        btnHighlightTool,
         lineButton,
         textButton,
         new ToolStripSeparator(),
@@ -135,6 +137,29 @@ public partial class MainForm : Form
         pictureBox.MouseDown += PictureBox_MouseDown;
         pictureBox.MouseMove += PictureBox_MouseMove;
         pictureBox.MouseUp += PictureBox_MouseUp;
+    }
+
+    private void SetActiveTool(AnnotationTool tool)
+    {
+        _currentTool = tool;
+        UpdateToolButtons();
+    }
+
+    private void UpdateToolButtons()
+    {
+        btnRectangleTool.BackColor = (_currentTool == AnnotationTool.Rectangle) ? Color.LightBlue : SystemColors.Control;
+        btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
+        // Repeat for other tools as needed
+    }
+
+    private void BtnRectangleTool_Click(object sender, EventArgs e)
+    {
+        SetActiveTool(AnnotationTool.Rectangle);
+    }
+
+    private void BtnHighlightTool_Click(object sender, EventArgs e)
+    {
+        SetActiveTool(AnnotationTool.Highlight);
     }
 
     private void Panel_Resize(object? sender, EventArgs e)
@@ -411,28 +436,7 @@ public partial class MainForm : Form
     }
 
 
-    private void SetActiveTool(AnnotationTool tool)
-    {
-        _currentTool = tool;
-        UpdateToolButtons();
-    }
-
-    private void UpdateToolButtons()
-    {
-        btnRectangleTool.BackColor = (_currentTool == AnnotationTool.Rectangle) ? Color.LightBlue : SystemColors.Control;
-        btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
-        // Repeat for other tools as needed
-    }
-
-    private void BtnRectangleTool_Click(object sender, EventArgs e)
-    {
-        SetActiveTool(AnnotationTool.Rectangle);
-    }
-
-    private void BtnHighlightTool_Click(object sender, EventArgs e)
-    {
-        SetActiveTool(AnnotationTool.Highlight);
-    }
+    
 
 
     private void MainForm_Load(object sender, EventArgs e)
