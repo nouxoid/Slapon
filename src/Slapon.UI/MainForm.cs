@@ -49,12 +49,11 @@ public partial class MainForm : Form
     }
     private void SetupUI()
     {
-        // Create and configure PictureBox with padding
+        // Create and configure PictureBox
         pictureBox = new PictureBox
         {
-            Dock = DockStyle.Fill,
-            SizeMode = PictureBoxSizeMode.Zoom,
-            Margin = new Padding(16)
+            SizeMode = PictureBoxSizeMode.AutoSize,
+            Dock = DockStyle.None // Remove Dock setting to allow scrolling
         };
 
         var panel = new Panel
@@ -64,37 +63,40 @@ public partial class MainForm : Form
             BorderStyle = BorderStyle.None,
             Padding = new Padding(16),
         };
+
+        // Add resize handler to center the image
+        panel.Resize += Panel_Resize;
         panel.Controls.Add(pictureBox);
 
         // Create modern toolbar
         var toolStrip = new ToolStrip
         {
             Dock = DockStyle.Top,
-            RenderMode = ToolStripRenderMode.Professional,
+            RenderMode = ToolStripRenderMode.System,
             Padding = new Padding(8),
-            BackColor = Color.White,
+            BackColor = Color.FromArgb(248, 249, 250),
             GripStyle = ToolStripGripStyle.Hidden,
-            ImageScalingSize = new Size(24, 24)
+            Height = 40
         };
 
         // Screenshot button
-        var screenshotButton = CreateToolStripButton("Screenshot", "📷");
+        var screenshotButton = CreateToolStripButton("Screenshot");
         screenshotButton.Click += StartScreenCapture;
 
         // Rectangle annotation button
-        var rectangleButton = CreateToolStripButton("Rectangle", "⬜");
+        var rectangleButton = CreateToolStripButton("Rectangle");
 
         // Highlighter button
-        var highlighterButton = CreateToolStripButton("Highlight", "🖊️");
+        var highlighterButton = CreateToolStripButton("Highlight");
 
         // Line button
-        var lineButton = CreateToolStripButton("Line", "📏");
+        var lineButton = CreateToolStripButton("Line");
 
         // Text button
-        var textButton = CreateToolStripButton("Text", "T");
+        var textButton = CreateToolStripButton("Text");
 
         // Color button
-        var colorButton = CreateToolStripButton("Color", "🎨");
+        var colorButton = CreateToolStripButton("Color");
         colorButton.Click += ChangeColor;
 
         toolStrip.Items.AddRange(new ToolStripItem[]
@@ -111,43 +113,71 @@ public partial class MainForm : Form
 
         Controls.Add(panel);
         Controls.Add(toolStrip);
+
+        // Handle PictureBox painting
+        pictureBox.Paint += PictureBox_Paint;
+        pictureBox.MouseDown += PictureBox_MouseDown;
+        pictureBox.MouseMove += PictureBox_MouseMove;
+        pictureBox.MouseUp += PictureBox_MouseUp;
     }
 
-    private ToolStripButton CreateToolStripButton(string text, string symbol)
+    private void Panel_Resize(object? sender, EventArgs e)
+    {
+        CenterPictureBox();
+    }
+
+    private void CenterPictureBox()
+    {
+        if (pictureBox.Image == null || pictureBox.Parent == null) return;
+
+        var panel = (Panel)pictureBox.Parent;
+
+        // Calculate center position considering both panel size and image size
+        int x = Math.Max(0, (panel.ClientSize.Width - pictureBox.Width) / 2);
+        int y = Math.Max(0, (panel.ClientSize.Height - pictureBox.Height) / 2);
+
+        // If the image is smaller than the panel, center it
+        // If the image is larger, start from padding
+        if (pictureBox.Width < panel.ClientSize.Width)
+        {
+            x = (panel.ClientSize.Width - pictureBox.Width) / 2;
+        }
+        else
+        {
+            x = panel.Padding.Left;
+        }
+
+        if (pictureBox.Height < panel.ClientSize.Height)
+        {
+            y = (panel.ClientSize.Height - pictureBox.Height) / 2;
+        }
+        else
+        {
+            y = panel.Padding.Top;
+        }
+
+        pictureBox.Location = new Point(x, y);
+    }
+    private ToolStripButton CreateToolStripButton(string text)
     {
         return new ToolStripButton
         {
             Text = text,
-            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
-            Image = CreateIcon(symbol),
-            TextImageRelation = TextImageRelation.ImageAboveText,
-            Font = new Font("Segoe UI", 12),
-            Padding = new Padding(8),
+            DisplayStyle = ToolStripItemDisplayStyle.Text,
+            Font = new Font("Segoe UI", 8, FontStyle.Regular),
+            Padding = new Padding(8, 0, 8, 0),
             AutoSize = true,
-            ForeColor = Color.Black,
-            BackColor = Color.White,
-            //FlatStyle = FlatStyle.Flat
+            ForeColor = Color.FromArgb(33, 37, 41), // Dark gray text
+            BackColor = Color.Transparent,
         };
     }
 
-    private Image CreateIcon(string symbol)
-    {
-        var bitmap = new Bitmap(24, 24);
-        using (var g = Graphics.FromImage(bitmap))
-        {
-            g.Clear(Color.Transparent);
-            using (var font = new Font("Calibri", 12))
-            {
-                g.DrawString(symbol, font, Brushes.Black, new PointF(-4, -4));
-            }
-        }
-        return bitmap;
-    }
+
 
     private async void StartScreenCapture(object? sender, EventArgs e)
     {
         this.WindowState = FormWindowState.Minimized;
-        await Task.Delay(200); // Give time for window to minimize
+        await Task.Delay(200);
 
         var captureService = new ScreenCaptureService();
         var screenshot = captureService.CaptureScreen();
@@ -160,18 +190,48 @@ public partial class MainForm : Form
 
             _currentImage?.Dispose();
             _currentImage = capturedImage;
-            pictureBox.Image = _currentImage;
 
-            // Resize form to fit image with padding
-            var padding = 32; // 16px on each side
-            var width = Math.Min(Screen.PrimaryScreen.WorkingArea.Width - padding, capturedImage.Width + padding);
-            var height = Math.Min(Screen.PrimaryScreen.WorkingArea.Height - padding, capturedImage.Height + padding);
+            // Clear existing annotations
+            _annotationService.ClearAnnotations();
 
-            this.ClientSize = new Size(width, height);
-            this.CenterToScreen();
+            // Update PictureBox on the UI thread
+            if (pictureBox.InvokeRequired)
+            {
+                pictureBox.Invoke(() =>
+                {
+                    pictureBox.Image = _currentImage;
+                    SetWindowAndImageSize(capturedImage);
+                });
+            }
+            else
+            {
+                pictureBox.Image = _currentImage;
+                SetWindowAndImageSize(capturedImage);
+            }
         }
 
         this.WindowState = FormWindowState.Normal;
+    }
+
+    private void SetWindowAndImageSize(Bitmap capturedImage)
+    {
+        // Set window size to be 80% of screen size or image size, whichever is smaller
+        var screenWidth = Screen.PrimaryScreen.WorkingArea.Width;
+        var screenHeight = Screen.PrimaryScreen.WorkingArea.Height;
+        var maxWidth = (int)(screenWidth * 0.8);
+        var maxHeight = (int)(screenHeight * 0.8);
+
+        var width = Math.Min(maxWidth, capturedImage.Width + 50);
+        var height = Math.Min(maxHeight, capturedImage.Height + 50);
+
+        this.ClientSize = new Size(width, height);
+        this.CenterToScreen();
+
+        // Allow layout to update
+        Application.DoEvents();
+
+        // Center the picture box after everything is set
+        CenterPictureBox();
     }
 
     private void OpenImage(object? sender, EventArgs e)
