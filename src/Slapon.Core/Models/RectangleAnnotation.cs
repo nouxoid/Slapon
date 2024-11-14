@@ -22,10 +22,10 @@ public class RectangleAnnotation : BaseAnnotation
     public override void Draw(Graphics g)
     {
         using var pen = new Pen(GetTransparentColor(), BorderThickness);
-        if (IsSelected)
+      /*  if (IsSelected)
         {
             pen.DashStyle = DashStyle.Dash;
-        }
+        }*/
         g.DrawRectangle(pen, Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height);
     }
 

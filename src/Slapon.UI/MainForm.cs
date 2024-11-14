@@ -45,8 +45,15 @@ public partial class MainForm : Form
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
         _screenCaptureService = new ScreenCaptureService();
-        _annotationService.AnnotationsChanged += (s, e) => pictureBox.Invalidate();
+        _annotationService.AnnotationsChanged += (s, e) =>
+        {
+            pictureBox.Invalidate();
+            
+        };
         SetupUI();
+
+        // Automatically start screen capture on startup
+        StartScreenCapture(null, null);
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -106,6 +113,11 @@ public partial class MainForm : Form
             Height = 40
         };
 
+        var copyButton = CreateToolStripButton("Copy to Clipboard");
+        copyButton.Click += (s, e) => CopyScreenshotToClipboard(); // Trigger the copy method
+
+        toolStrip.Items.Add(copyButton);
+
         // Screenshot button
         var screenshotButton = CreateToolStripButton("Screenshot");
         screenshotButton.Click += StartScreenCapture;
@@ -137,7 +149,9 @@ public partial class MainForm : Form
         lineButton,
         textButton,
         new ToolStripSeparator(),
-        colorButton
+        colorButton,
+        new ToolStripSeparator(),
+        copyButton
         });
 
         Controls.Add(panel);
@@ -176,6 +190,14 @@ public partial class MainForm : Form
     private void Panel_Resize(object? sender, EventArgs e)
     {
         CenterPictureBox();
+    }
+
+    private void CopyScreenshotToClipboard()
+    {
+        if (_currentImage != null)
+        {
+            Clipboard.SetImage(_currentImage);
+        }
     }
 
     private void CenterPictureBox()
@@ -260,9 +282,28 @@ public partial class MainForm : Form
                 pictureBox.Image = _currentImage;
                 SetWindowAndImageSize(capturedImage);
             }
+            // Copy the screenshot with annotations to the clipboard
+            CopyScreenshotWithAnnotationsToClipboard();
         }
 
         this.WindowState = FormWindowState.Normal;
+    }
+
+    private void CopyScreenshotWithAnnotationsToClipboard()
+    {
+        if (_currentImage == null) return;
+
+        var bitmap = new Bitmap(_currentImage.Width, _currentImage.Height);
+        using (var g = Graphics.FromImage(bitmap))
+        {
+            g.DrawImage(_currentImage, Point.Empty);
+            foreach (var annotation in _annotationService.Annotations)
+            {
+                annotation.Draw(g);
+            }
+        }
+
+        Clipboard.SetImage(bitmap);
     }
 
     private void SetWindowAndImageSize(Bitmap capturedImage)
@@ -349,11 +390,9 @@ public partial class MainForm : Form
             annotation.Draw(e.Graphics);
         }
 
-        if (_isDrawing)
+        if (_isDrawing && _currentAnnotation != null)
         {
-            var rect = GetRectangle(Point.Round(_startPoint), pictureBox.PointToClient(Cursor.Position));
-            using var pen = new Pen(_currentColor, 2f) { DashStyle = DashStyle.Dash };
-            e.Graphics.DrawRectangle(pen, rect);
+            _currentAnnotation.Draw(e.Graphics);
         }
     }
 
@@ -395,6 +434,7 @@ public partial class MainForm : Form
                 _annotationService.AddAnnotation(_currentAnnotation);
             }
 
+            // Invalidate the PictureBox to trigger a repaint
             pictureBox.Invalidate();
         }
     }
@@ -427,6 +467,8 @@ public partial class MainForm : Form
                     _annotationService.AddAnnotation(annotation);
                     _annotationService.SelectAnnotation(annotation);
                 }
+                // Copy the screenshot with annotations to the clipboard
+                CopyScreenshotWithAnnotationsToClipboard();
             }
 
             _drawStart = null;

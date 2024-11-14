@@ -25,14 +25,14 @@ public class HighlightAnnotation : IAnnotation
         {
             g.FillRectangle(highlightBrush, Bounds);
         }
-
+        /*
         if (IsSelected)
         {
             using (var pen = new Pen(Color.Black, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash })
             {
                 g.DrawRectangle(pen, Rectangle.Round(Bounds));
             }
-        }
+        }*/
     }
 
     public bool Contains(PointF point)
