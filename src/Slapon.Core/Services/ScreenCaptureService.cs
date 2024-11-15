@@ -1,33 +1,55 @@
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace Slapon.Core.Services;
 
 public class ScreenCaptureService
 {
-    [DllImport("user32.dll")]
-    private static extern int GetSystemMetrics(SystemMetric metric);
-
-    private enum SystemMetric
-    {
-        ScreenWidth = 0,
-        ScreenHeight = 1
-    }
-
     public Bitmap CaptureScreen()
     {
-        int screenWidth = GetSystemMetrics(SystemMetric.ScreenWidth);
-        int screenHeight = GetSystemMetrics(SystemMetric.ScreenHeight);
+        // Get the total size of all screens
+        Rectangle totalBounds = GetTotalScreenBounds();
 
-        var screenshot = new Bitmap(screenWidth, screenHeight);
+        var screenshot = new Bitmap(totalBounds.Width, totalBounds.Height);
 
         using (var graphics = Graphics.FromImage(screenshot))
         {
-            graphics.CopyFromScreen(0, 0, 0, 0, new Size(screenWidth, screenHeight));
+            // Copy from each screen
+            foreach (Screen screen in Screen.AllScreens)
+            {
+                // Calculate relative position
+                var relativeBounds = new Rectangle(
+                    screen.Bounds.X - totalBounds.X,
+                    screen.Bounds.Y - totalBounds.Y,
+                    screen.Bounds.Width,
+                    screen.Bounds.Height
+                );
+
+                // Copy this screen's content
+                graphics.CopyFromScreen(
+                    screen.Bounds.X, screen.Bounds.Y,  // Source position
+                    relativeBounds.X, relativeBounds.Y, // Destination position
+                    screen.Bounds.Size                  // Size to copy
+                );
+            }
         }
 
         return screenshot;
+    }
+
+    private Rectangle GetTotalScreenBounds()
+    {
+        // Start with the primary screen
+        Rectangle totalBounds = Screen.PrimaryScreen.Bounds;
+
+        // Union with all other screens
+        foreach (Screen screen in Screen.AllScreens)
+        {
+            totalBounds = Rectangle.Union(totalBounds, screen.Bounds);
+        }
+
+        return totalBounds;
     }
 
     public Bitmap CaptureRegion(Rectangle region)

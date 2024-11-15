@@ -6,6 +6,7 @@ using Slapon.Core.Services;
 using System.Drawing.Imaging;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Windows.Forms;
 
 public class SelectionOverlayForm : Form
 {
@@ -13,25 +14,42 @@ public class SelectionOverlayForm : Form
     private Rectangle _selectionRect;
     private bool _isSelecting;
     private readonly Bitmap _screenshot;
+    private Rectangle _virtualScreenBounds;
 
     public SelectionOverlayForm(Bitmap screenshot)
     {
         _screenshot = screenshot;
+        _virtualScreenBounds = GetVirtualScreenBounds();
         InitializeOverlay();
+    }
+
+    private Rectangle GetVirtualScreenBounds()
+    {
+        // Get the bounds that encompass all screens
+        var bounds = new Rectangle();
+        foreach (Screen screen in Screen.AllScreens)
+        {
+            bounds = Rectangle.Union(bounds, screen.Bounds);
+        }
+        return bounds;
     }
 
     private void InitializeOverlay()
     {
         FormBorderStyle = FormBorderStyle.None;
-        WindowState = FormWindowState.Maximized;
+        StartPosition = FormStartPosition.Manual;
+
+        // Set the form to cover all screens
+        Location = new Point(_virtualScreenBounds.X, _virtualScreenBounds.Y);
+        Size = new Size(_virtualScreenBounds.Width, _virtualScreenBounds.Height);
+
         TopMost = true;
         BackColor = Color.Black;
         Opacity = 0.5;
         Cursor = Cursors.Cross;
-        
         DoubleBuffered = true;
 
-        MouseDown += (s, e) => 
+        MouseDown += (s, e) =>
         {
             if (e.Button == MouseButtons.Left)
             {
@@ -41,7 +59,7 @@ public class SelectionOverlayForm : Form
             }
         };
 
-        MouseMove += (s, e) => 
+        MouseMove += (s, e) =>
         {
             if (_isSelecting)
             {
@@ -50,7 +68,7 @@ public class SelectionOverlayForm : Form
             }
         };
 
-        MouseUp += (s, e) => 
+        MouseUp += (s, e) =>
         {
             if (e.Button == MouseButtons.Left)
             {
@@ -63,7 +81,7 @@ public class SelectionOverlayForm : Form
             }
         };
 
-        KeyDown += (s, e) => 
+        KeyDown += (s, e) =>
         {
             if (e.KeyCode == Keys.Escape)
             {
@@ -82,17 +100,37 @@ public class SelectionOverlayForm : Form
             var region = new Region(ClientRectangle);
             region.Exclude(_selectionRect);
             e.Graphics.FillRegion(brush, region);
-            
+
+            // Convert screen coordinates to image coordinates
+            var imageRect = new Rectangle(
+                _selectionRect.X - _virtualScreenBounds.X,
+                _selectionRect.Y - _virtualScreenBounds.Y,
+                _selectionRect.Width,
+                _selectionRect.Height
+            );
+
             // Draw the actual screenshot in the selection area
-            e.Graphics.DrawImage(_screenshot, _selectionRect, _selectionRect, GraphicsUnit.Pixel);
-            
+            e.Graphics.DrawImage(_screenshot, _selectionRect, imageRect, GraphicsUnit.Pixel);
+
             // Draw border around selection
             using var pen = new Pen(Color.White, 2);
             e.Graphics.DrawRectangle(pen, _selectionRect);
         }
     }
 
-    public Rectangle SelectionBounds => _selectionRect;
+    public Rectangle SelectionBounds
+    {
+        get
+        {
+            // Convert screen coordinates to image coordinates
+            return new Rectangle(
+                _selectionRect.X - _virtualScreenBounds.X,
+                _selectionRect.Y - _virtualScreenBounds.Y,
+                _selectionRect.Width,
+                _selectionRect.Height
+            );
+        }
+    }
 
     private static Rectangle GetRectangle(Point start, Point end)
     {
