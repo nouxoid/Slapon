@@ -8,6 +8,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using Slapon.UI.Forms;
 using System.Text.Json;
+using System;
 
 
 public partial class MainForm : Form
@@ -552,17 +553,25 @@ public partial class MainForm : Form
 
         if (saveDialog.ShowDialog() == DialogResult.OK)
         {
+            byte[] screenshotBytes;
+            // Create the screenshot bytes using a MemoryStream
+            using (var ms = new MemoryStream())
+            {
+                _currentImage.Save(ms, ImageFormat.Png);
+                screenshotBytes = ms.ToArray();
+            }
+
             var saveData = new SaveData
             {
-                Screenshot = ImageToByteArray(_currentImage),
                 Annotations = _annotationService.Annotations.Select(a => new SerializableAnnotation
                 {
-                    Id = a.Id,
-                    Type = a.GetType().Name,
+                    Id = Guid.NewGuid().ToString(),
+                    Type = a.GetType().Name.Replace("Annotation", ""),
                     Bounds = a.Bounds,
                     Color = a.Color,
-                    Opacity = a is HighlightAnnotation h ? h.Opacity : 1.0f
-                }).ToList()
+                    Opacity = a.GetType().GetProperty("Opacity")?.GetValue(a) as float? ?? 1.0f
+                }).ToList(),
+                Screenshot = screenshotBytes
             };
 
             var json = JsonSerializer.Serialize(saveData);
@@ -631,7 +640,7 @@ public partial class MainForm : Form
     public class SaveData
     {
         public byte[] Screenshot { get; set; }
-        public List<AnnotationData> Annotations { get; set; }
+        public List<SerializableAnnotation> Annotations { get; set; }
     }
 
     public class AnnotationData
@@ -657,45 +666,99 @@ public partial class MainForm : Form
         {
             if (saveDialog.FileName.EndsWith(".slap"))
             {
-                // Save as editable .slap file
+                byte[] screenshotBytes;
+                // Create the screenshot bytes first
+                using (var ms = new MemoryStream())
+                {
+                    _currentImage.Save(ms, ImageFormat.Png);
+                    screenshotBytes = ms.ToArray();
+                }
+
+                // Then create the save data
                 var saveData = new SaveData
                 {
                     Annotations = _annotationService.Annotations.Select(a => new SerializableAnnotation
                     {
+                        Id = Guid.NewGuid().ToString(),
                         Type = a.GetType().Name.Replace("Annotation", ""),
                         Bounds = a.Bounds,
                         Color = a.Color,
                         Opacity = a.GetType().GetProperty("Opacity")?.GetValue(a) as float? ?? 1.0f
                     }).ToList(),
-                    Screenshot = null // Will be set below
+                    Screenshot = screenshotBytes
                 };
 
-                // Convert current image to byte array
-                using var ms = new MemoryStream();
-                _currentImage.Save(ms, ImageFormat.Png);
-                saveData.Screenshot = ms.ToArray();
-
                 // Serialize and save
-                var json = JsonSerializer.Serialize(saveData, new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                });
+                var json = JsonSerializer.Serialize(saveData);
                 File.WriteAllText(saveDialog.FileName, json);
             }
             else
             {
-                // Save as flattened image
-                var bitmap = new Bitmap(_currentImage.Width, _currentImage.Height);
-                using (var g = Graphics.FromImage(bitmap))
-                {
-                    g.DrawImage(_currentImage, Point.Empty);
-                    foreach (var annotation in _annotationService.Annotations)
-                    {
-                        annotation.Draw(g);
-                    }
-                }
-                bitmap.Save(saveDialog.FileName, ImageFormat.Png);
+                // Save as PNG
+                SaveAsImage(saveDialog.FileName);
             }
+        }
+    }
+
+    private void SaveAsImage(string fileName)
+    {
+        var bitmap = new Bitmap(_currentImage.Width, _currentImage.Height);
+        using (var g = Graphics.FromImage(bitmap))
+        {
+            g.DrawImage(_currentImage, Point.Empty);
+            foreach (var annotation in _annotationService.Annotations)
+            {
+                annotation.Draw(g);
+            }
+        }
+        bitmap.Save(fileName, ImageFormat.Png);
+    }
+
+    private void LoadFromSlap(string fileName)
+    {
+        try
+        {
+            var json = File.ReadAllText(fileName);
+            var saveData = JsonSerializer.Deserialize<SaveData>(json);
+
+            if (saveData == null)
+            {
+                MessageBox.Show("Failed to load file: Invalid format", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            // Load the image
+            using var ms = new MemoryStream(saveData.Screenshot);
+            _currentImage?.Dispose();
+            _currentImage = new Bitmap(ms);
+            pictureBox.Image = _currentImage;
+
+            // Clear existing annotations
+            _annotationService.ClearAnnotations();
+
+            // Restore annotations
+            foreach (var serializedAnnotation in saveData.Annotations)
+            {
+                IAnnotation? annotation = serializedAnnotation.Type switch
+                {
+                    "Rectangle" => new RectangleAnnotation(serializedAnnotation.Bounds, serializedAnnotation.Color, serializedAnnotation.Opacity),
+                    "Highlight" => new HighlightAnnotation(serializedAnnotation.Bounds, serializedAnnotation.Color, serializedAnnotation.Opacity),
+                    // Add other annotation types here as needed
+                    _ => null
+                };
+
+                if (annotation != null)
+                {
+                    _annotationService.AddAnnotation(annotation);
+                }
+            }
+
+            SetWindowAndImageSize((Bitmap)_currentImage);
+            pictureBox.Invalidate();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error loading file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
