@@ -113,8 +113,11 @@ public partial class MainForm : Form
             Height = 40
         };
 
+        var saveButton = CreateToolStripButton("Save");
+        saveButton.Click += SaveImage;
+
         var copyButton = CreateToolStripButton("Copy to Clipboard");
-        copyButton.Click += (s, e) => CopyScreenshotToClipboard(); // Trigger the copy method
+        copyButton.Click += (s, e) => CopyScreenshotWithAnnotationsToClipboard(); // Trigger the copy method
 
         toolStrip.Items.Add(copyButton);
 
@@ -151,7 +154,8 @@ public partial class MainForm : Form
         new ToolStripSeparator(),
         colorButton,
         new ToolStripSeparator(),
-        copyButton
+        copyButton,
+        saveButton
         });
 
         Controls.Add(panel);
