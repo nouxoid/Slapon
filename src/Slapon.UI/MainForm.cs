@@ -7,6 +7,8 @@ using System.Drawing.Imaging;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using Slapon.UI.Forms;
+using System.Text.Json;
+
 
 public partial class MainForm : Form
 {
@@ -39,6 +41,8 @@ public partial class MainForm : Form
 
     private ToolStripButton btnRectangleTool;
     private ToolStripButton btnHighlightTool;
+
+
     public MainForm()
     {
         InitializeComponent();
@@ -58,7 +62,17 @@ public partial class MainForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        if (keyData == Keys.Delete)
+        if (keyData == (Keys.Control | Keys.S))
+        {
+            SaveFile();
+            return true;
+        }
+        else if (keyData == (Keys.Control | Keys.O))
+        {
+            LoadFile();
+            return true;
+        }
+        else if (keyData == Keys.Delete)
         {
             var selected = _annotationService.SelectedAnnotation;
             if (selected != null)
@@ -97,6 +111,12 @@ public partial class MainForm : Form
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
             null, panel, new object[] { true });
 
+        // Add Save and Open buttons
+        var saveButton = CreateToolStripButton("Save");
+        saveButton.Click += (s, e) => SaveFile();
+
+        var openButton = CreateToolStripButton("Open");
+        openButton.Click += (s, e) => LoadFile();
 
         // Add resize handler to center the image
         panel.Resize += Panel_Resize;
@@ -142,16 +162,19 @@ public partial class MainForm : Form
 
         toolStrip.Items.AddRange(new ToolStripItem[]
         {
-        screenshotButton,
-        new ToolStripSeparator(),
-        btnRectangleTool,
-        btnHighlightTool,
-        lineButton,
-        textButton,
-        new ToolStripSeparator(),
-        colorButton,
-        new ToolStripSeparator(),
-        copyButton
+            screenshotButton,
+            new ToolStripSeparator(),
+            openButton,
+            saveButton,
+            new ToolStripSeparator(),
+            btnRectangleTool,
+            btnHighlightTool,
+            lineButton,
+            textButton,
+            new ToolStripSeparator(),
+            colorButton,
+            new ToolStripSeparator(),
+            copyButton
         });
 
         Controls.Add(panel);
@@ -488,9 +511,193 @@ public partial class MainForm : Form
         );
     }
 
+    private void SaveAsImage()
+    {
+        if (_currentImage == null) return;
 
-    
+        using var saveDialog = new SaveFileDialog
+        {
+            Filter = "PNG Image|*.png|JPEG Image|*.jpg",
+            Title = "Save Screenshot with Annotations"
+        };
 
+        if (saveDialog.ShowDialog() == DialogResult.OK)
+        {
+            using var bitmap = new Bitmap(_currentImage.Width, _currentImage.Height);
+            using var g = Graphics.FromImage(bitmap);
+
+            // Draw the screenshot
+            g.DrawImage(_currentImage, 0, 0);
+
+            // Draw all annotations
+            foreach (var annotation in _annotationService.Annotations)
+            {
+                annotation.Draw(g);
+            }
+
+            bitmap.Save(saveDialog.FileName,
+                saveDialog.FilterIndex == 1 ? ImageFormat.Png : ImageFormat.Jpeg);
+        }
+    }
+
+    private void SaveAsEditable()
+    {
+        if (_currentImage == null) return;
+
+        using var saveDialog = new SaveFileDialog
+        {
+            Filter = "Slapon File|*.slap",
+            Title = "Save Editable Screenshot"
+        };
+
+        if (saveDialog.ShowDialog() == DialogResult.OK)
+        {
+            var saveData = new SaveData
+            {
+                Screenshot = ImageToByteArray(_currentImage),
+                Annotations = _annotationService.Annotations.Select(a => new SerializableAnnotation
+                {
+                    Id = a.Id,
+                    Type = a.GetType().Name,
+                    Bounds = a.Bounds,
+                    Color = a.Color,
+                    Opacity = a is HighlightAnnotation h ? h.Opacity : 1.0f
+                }).ToList()
+            };
+
+            var json = JsonSerializer.Serialize(saveData);
+            File.WriteAllText(saveDialog.FileName, json);
+        }
+    }
+
+    private byte[] ImageToByteArray(Image image)
+    {
+        using var ms = new MemoryStream();
+        image.Save(ms, ImageFormat.Png);
+        return ms.ToArray();
+    }
+
+    private void LoadFile()
+    {
+        using var openDialog = new OpenFileDialog
+        {
+            Filter = "Slapon Files|*.slap|Image Files|*.png;*.jpg",
+            Title = "Open File"
+        };
+
+        if (openDialog.ShowDialog() == DialogResult.OK)
+        {
+            if (openDialog.FileName.EndsWith(".slap"))
+            {
+                var json = File.ReadAllText(openDialog.FileName);
+                var saveData = JsonSerializer.Deserialize<SaveData>(json);
+
+                using var ms = new MemoryStream(saveData.Screenshot);
+                _currentImage = (Bitmap?)Image.FromStream(ms);
+                pictureBox.Image = _currentImage;
+
+                // Clear existing annotations
+                _annotationService.ClearAnnotations();
+
+                // Restore annotations
+                foreach (var annotationData in saveData.Annotations)
+                {
+                    IAnnotation? annotation = annotationData.Type switch
+                    {
+                        "Rectangle" => new RectangleAnnotation(annotationData.Bounds, annotationData.Color, annotationData.Opacity),
+                        "Highlight" => new HighlightAnnotation(annotationData.Bounds, annotationData.Color, annotationData.Opacity),
+                        _ => null
+                    };
+
+                    if (annotation != null)
+                    {
+                        _annotationService.AddAnnotation(annotation);
+                    }
+                }
+            }
+            else
+            {
+                // Load as regular image file
+                _currentImage = (Bitmap?)Image.FromFile(openDialog.FileName);
+                pictureBox.Image = _currentImage;
+                _annotationService.ClearAnnotations();
+            }
+
+            CenterPictureBox();
+            pictureBox.Invalidate();
+        }
+    }
+
+    public class SaveData
+    {
+        public byte[] Screenshot { get; set; }
+        public List<AnnotationData> Annotations { get; set; }
+    }
+
+    public class AnnotationData
+    {
+        public string Type { get; set; }
+        public RectangleF Bounds { get; set; }
+        public Color Color { get; set; }
+        public float Opacity { get; set; }
+    }
+
+    private void SaveFile()
+    {
+        if (_currentImage == null) return;
+
+        using var saveDialog = new SaveFileDialog
+        {
+            Filter = "Slapon File|*.slap|PNG Image|*.png",
+            DefaultExt = "slap",
+            Title = "Save File"
+        };
+
+        if (saveDialog.ShowDialog() == DialogResult.OK)
+        {
+            if (saveDialog.FileName.EndsWith(".slap"))
+            {
+                // Save as editable .slap file
+                var saveData = new SaveData
+                {
+                    Annotations = _annotationService.Annotations.Select(a => new SerializableAnnotation
+                    {
+                        Type = a.GetType().Name.Replace("Annotation", ""),
+                        Bounds = a.Bounds,
+                        Color = a.Color,
+                        Opacity = a.GetType().GetProperty("Opacity")?.GetValue(a) as float? ?? 1.0f
+                    }).ToList(),
+                    Screenshot = null // Will be set below
+                };
+
+                // Convert current image to byte array
+                using var ms = new MemoryStream();
+                _currentImage.Save(ms, ImageFormat.Png);
+                saveData.Screenshot = ms.ToArray();
+
+                // Serialize and save
+                var json = JsonSerializer.Serialize(saveData, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+                File.WriteAllText(saveDialog.FileName, json);
+            }
+            else
+            {
+                // Save as flattened image
+                var bitmap = new Bitmap(_currentImage.Width, _currentImage.Height);
+                using (var g = Graphics.FromImage(bitmap))
+                {
+                    g.DrawImage(_currentImage, Point.Empty);
+                    foreach (var annotation in _annotationService.Annotations)
+                    {
+                        annotation.Draw(g);
+                    }
+                }
+                bitmap.Save(saveDialog.FileName, ImageFormat.Png);
+            }
+        }
+    }
 
     private void MainForm_Load(object sender, EventArgs e)
     {
