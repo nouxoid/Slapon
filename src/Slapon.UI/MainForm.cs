@@ -7,6 +7,7 @@ using System.Drawing.Imaging;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using Slapon.UI.Forms;
+using Slapon.UI.Properties;
 
 public partial class MainForm : Form
 {
@@ -72,18 +73,19 @@ public partial class MainForm : Form
     }
     private void SetupUI()
     {
-        // Create and configure PictureBox
+        // PictureBox setup (keep your existing PictureBox configuration)
         pictureBox = new PictureBox
         {
             SizeMode = PictureBoxSizeMode.AutoSize,
-            Dock = DockStyle.None // Remove Dock setting to allow scrolling
+            Dock = DockStyle.None
         };
 
-        // Enable double buffering for PictureBox using reflection
+        // Enable double buffering for PictureBox
         typeof(PictureBox).InvokeMember("DoubleBuffered",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
             null, pictureBox, new object[] { true });
 
+        // Panel setup (keep your existing Panel configuration)
         var panel = new Panel
         {
             Dock = DockStyle.Fill,
@@ -92,80 +94,157 @@ public partial class MainForm : Form
             Padding = new Padding(16),
         };
 
-        // Enable double buffering for Panel using reflection
+        // Enable double buffering for Panel
         typeof(Panel).InvokeMember("DoubleBuffered",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
             null, panel, new object[] { true });
 
-
-        // Add resize handler to center the image
         panel.Resize += Panel_Resize;
         panel.Controls.Add(pictureBox);
 
-        // Create modern toolbar
+        // In SetupUI method, update the toolStrip initialization:
         var toolStrip = new ToolStrip
         {
-            Dock = DockStyle.Top,
-            RenderMode = ToolStripRenderMode.System,
-            Padding = new Padding(8),
-            BackColor = Color.FromArgb(248, 249, 250),
+            Renderer = new CustomToolStripRenderer(),
             GripStyle = ToolStripGripStyle.Hidden,
-            Height = 40
+            BackColor = Color.FromArgb(240, 240, 240), // Light gray background
+            ForeColor = Color.FromArgb(50, 50, 50), // Darker text color
+            Padding = new Padding(2), // Reduced padding
+            Height = 32, // Reduced height
+            Dock = DockStyle.Top
         };
 
-        var saveButton = CreateToolStripButton("Save");
-        saveButton.Click += SaveImage;
+        // Capture Group
+        var screenshotButton = CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture);
 
-        var copyButton = CreateToolStripButton("Copy to Clipboard");
-        copyButton.Click += (s, e) => CopyScreenshotWithAnnotationsToClipboard(); // Trigger the copy method
+        // Annotation Group
+        btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
+        btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
+        var lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
+        var textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
 
-        toolStrip.Items.Add(copyButton);
+        // Utility Group
+        var colorButton = CreateModernButton("Color", null, ChangeColor);
+        var clearAllButton = CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations());
 
-        // Screenshot button
-        var screenshotButton = CreateToolStripButton("Screenshot");
-        screenshotButton.Click += StartScreenCapture;
+        var expandingSeparator = new ToolStripSeparator
+        {
+            AutoSize = true,
+            Margin = new Padding(0),
+            Alignment = ToolStripItemAlignment.Right // This is key for right alignment
+        };
 
-        // Rectangle annotation button
-        btnRectangleTool = CreateToolStripButton("Rectangle");
-        btnRectangleTool.Click += (s, e) => SetActiveTool(AnnotationTool.Rectangle);
 
-        // Highlighter button
-        btnHighlightTool = CreateToolStripButton("Highlight");
-        btnHighlightTool.Click += (s, e) => SetActiveTool(AnnotationTool.Highlight);
 
-        // Line button
-        var lineButton = CreateToolStripButton("Line");
+        // Action Group (right-aligned)
+        var copyButton = CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
+        var saveButton = CreateModernButton("Save", null, SaveImage);
 
-        // Text button
-        var textButton = CreateToolStripButton("Text");
+        // Configure right-aligned buttons
+        copyButton.Alignment = ToolStripItemAlignment.Right;
+        saveButton.Alignment = ToolStripItemAlignment.Right;
 
-        // Color button
-        var colorButton = CreateToolStripButton("Color");
-        colorButton.Click += ChangeColor;
-
+        // Add all items to toolbar with separators
         toolStrip.Items.AddRange(new ToolStripItem[]
         {
-        screenshotButton,
-        new ToolStripSeparator(),
-        btnRectangleTool,
-        btnHighlightTool,
-        lineButton,
-        textButton,
-        new ToolStripSeparator(),
-        colorButton,
-        new ToolStripSeparator(),
-        copyButton,
-        saveButton
+            new ToolStripSeparator(),
+            screenshotButton,
+            new ToolStripSeparator(),
+            btnRectangleTool,
+            btnHighlightTool,
+            lineButton,
+            textButton,
+            new ToolStripSeparator(),
+            colorButton,
+            clearAllButton,
+            expandingSeparator,
+            copyButton,
+            saveButton
         });
+
+
 
         Controls.Add(panel);
         Controls.Add(toolStrip);
 
-        // Handle PictureBox painting
+        // PictureBox event handlers
         pictureBox.Paint += PictureBox_Paint;
         pictureBox.MouseDown += PictureBox_MouseDown;
         pictureBox.MouseMove += PictureBox_MouseMove;
         pictureBox.MouseUp += PictureBox_MouseUp;
+    }
+
+    // Update CreateModernButton method
+    private ToolStripButton CreateModernButton(string text, Image? icon, EventHandler clickHandler)
+    {
+        var button = new ToolStripButton
+        {
+            Text = text,
+            DisplayStyle = icon != null && text != "" ? ToolStripItemDisplayStyle.ImageAndText :
+                      icon != null ? ToolStripItemDisplayStyle.Image :
+                      ToolStripItemDisplayStyle.Text,
+            AutoSize = true,
+            Margin = new Padding(1), // Reduced margin
+            Padding = new Padding(3), // Reduced padding
+            ForeColor = Color.FromArgb(50, 50, 50) // Darker text color
+        };
+
+        if (icon != null)
+        {
+            var size = new Size(20, 20); // Slightly smaller icons
+            var resizedImage = new Bitmap(icon, size);
+            button.Image = resizedImage;
+            button.ImageAlign = ContentAlignment.MiddleCenter;
+            button.TextImageRelation = TextImageRelation.ImageBeforeText;
+            button.ImageScaling = ToolStripItemImageScaling.None;
+        }
+        else
+        {
+            button.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+        }
+
+        button.Click += clickHandler;
+        return button;
+    }
+
+    private void ClearAllAnnotations()
+    {
+        _annotationService.ClearAnnotations();
+        if (pictureBox.Image != null)
+        {
+            pictureBox.Invalidate();
+        }
+    }
+
+    // Custom renderer for modern look
+    private class CustomToolStripRenderer : ToolStripProfessionalRenderer
+    {
+        public CustomToolStripRenderer() : base(new CustomColorTable())
+        {
+        }
+
+        protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+        {
+            // Don't render borders
+        }
+    }
+
+    private class CustomColorTable : ProfessionalColorTable
+    {
+        public override Color ToolStripGradientBegin => Color.FromArgb(240, 240, 240);
+        public override Color ToolStripGradientMiddle => Color.FromArgb(240, 240, 240);
+        public override Color ToolStripGradientEnd => Color.FromArgb(240, 240, 240);
+        public override Color ButtonSelectedBorder => Color.FromArgb(200, 200, 200);
+        public override Color ButtonSelectedHighlight => Color.FromArgb(220, 220, 220);
+        public override Color ButtonSelectedHighlightBorder => Color.FromArgb(200, 200, 200);
+        public override Color ButtonPressedBorder => Color.FromArgb(180, 180, 180);
+        public override Color ButtonPressedHighlight => Color.FromArgb(200, 200, 200);
+        public override Color ButtonPressedHighlightBorder => Color.FromArgb(180, 180, 180);
+        public override Color GripLight => Color.FromArgb(240, 240, 240);
+        public override Color GripDark => Color.FromArgb(240, 240, 240);
+        public override Color OverflowButtonGradientBegin => Color.FromArgb(240, 240, 240);
+        public override Color OverflowButtonGradientEnd => Color.FromArgb(240, 240, 240);
+        public override Color OverflowButtonGradientMiddle => Color.FromArgb(240, 240, 240);
     }
 
     private void SetActiveTool(AnnotationTool tool)
