@@ -17,5 +17,11 @@
   <ItemGroup>
     <ProjectReference Include="..\Slapon.Core\Slapon.Core.csproj" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="icons\*.png">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+</ItemGroup>
 
 </Project>
