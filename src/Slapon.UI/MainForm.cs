@@ -115,7 +115,7 @@ public partial class MainForm : Form
         };
 
         // Capture Group
-        var screenshotButton = CreateModernButton("New Capture", null, StartScreenCapture);
+        var screenshotButton = CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture);
 
         // Annotation Group
         btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
@@ -127,15 +127,27 @@ public partial class MainForm : Form
         var colorButton = CreateModernButton("Color", null, ChangeColor);
         var clearAllButton = CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations());
 
-               
+        var expandingSeparator = new ToolStripSeparator
+        {
+            AutoSize = true,
+            Margin = new Padding(0),
+            Alignment = ToolStripItemAlignment.Right // This is key for right alignment
+        };
+
+
 
         // Action Group (right-aligned)
         var copyButton = CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
         var saveButton = CreateModernButton("Save", null, SaveImage);
 
+        // Configure right-aligned buttons
+        copyButton.Alignment = ToolStripItemAlignment.Right;
+        saveButton.Alignment = ToolStripItemAlignment.Right;
+
         // Add all items to toolbar with separators
         toolStrip.Items.AddRange(new ToolStripItem[]
         {
+            new ToolStripSeparator(),
             screenshotButton,
             new ToolStripSeparator(),
             btnRectangleTool,
@@ -145,31 +157,12 @@ public partial class MainForm : Form
             new ToolStripSeparator(),
             colorButton,
             clearAllButton,
-            new ToolStripSeparator { Name = "SpringSeparator" }, // This is our spring
+            expandingSeparator,
             copyButton,
             saveButton
         });
 
-        // Add resize handler to dynamically adjust separator width
-        toolStrip.Layout += (s, e) =>
-        {
-            var separator = toolStrip.Items["SpringSeparator"] as ToolStripSeparator;
-            if (separator != null)
-            {
-                int totalWidth = toolStrip.Width;
-                int usedWidth = 0;
 
-                foreach (ToolStripItem item in toolStrip.Items)
-                {
-                    if (item != separator)
-                    {
-                        usedWidth += item.Width;
-                    }
-                }
-
-                separator.Width = Math.Max(0, totalWidth - usedWidth - 25); // 25 pixels buffer
-            }
-        };
 
         Controls.Add(panel);
         Controls.Add(toolStrip);
@@ -187,7 +180,9 @@ public partial class MainForm : Form
         var button = new ToolStripButton
         {
             Text = text,
-            DisplayStyle = icon != null ? ToolStripItemDisplayStyle.Image : ToolStripItemDisplayStyle.Text,
+            DisplayStyle = icon != null && text != "" ? ToolStripItemDisplayStyle.ImageAndText :
+                      icon != null ? ToolStripItemDisplayStyle.Image :
+                      ToolStripItemDisplayStyle.Text,
             AutoSize = true,
             Margin = new Padding(1), // Reduced margin
             Padding = new Padding(3), // Reduced padding
@@ -236,15 +231,20 @@ public partial class MainForm : Form
 
     private class CustomColorTable : ProfessionalColorTable
     {
-        public override Color ToolStripGradientBegin => Color.FromArgb(45, 45, 48);
-        public override Color ToolStripGradientMiddle => Color.FromArgb(45, 45, 48);
-        public override Color ToolStripGradientEnd => Color.FromArgb(45, 45, 48);
-        public override Color ButtonSelectedBorder => Color.FromArgb(0, 122, 204);
-        public override Color ButtonSelectedHighlight => Color.FromArgb(0, 122, 204);
-        public override Color ButtonSelectedHighlightBorder => Color.FromArgb(0, 122, 204);
-        public override Color ButtonPressedBorder => Color.FromArgb(0, 122, 204);
-        public override Color ButtonPressedHighlight => Color.FromArgb(0, 122, 204);
-        public override Color ButtonPressedHighlightBorder => Color.FromArgb(0, 122, 204);
+        public override Color ToolStripGradientBegin => Color.FromArgb(240, 240, 240);
+        public override Color ToolStripGradientMiddle => Color.FromArgb(240, 240, 240);
+        public override Color ToolStripGradientEnd => Color.FromArgb(240, 240, 240);
+        public override Color ButtonSelectedBorder => Color.FromArgb(200, 200, 200);
+        public override Color ButtonSelectedHighlight => Color.FromArgb(220, 220, 220);
+        public override Color ButtonSelectedHighlightBorder => Color.FromArgb(200, 200, 200);
+        public override Color ButtonPressedBorder => Color.FromArgb(180, 180, 180);
+        public override Color ButtonPressedHighlight => Color.FromArgb(200, 200, 200);
+        public override Color ButtonPressedHighlightBorder => Color.FromArgb(180, 180, 180);
+        public override Color GripLight => Color.FromArgb(240, 240, 240);
+        public override Color GripDark => Color.FromArgb(240, 240, 240);
+        public override Color OverflowButtonGradientBegin => Color.FromArgb(240, 240, 240);
+        public override Color OverflowButtonGradientEnd => Color.FromArgb(240, 240, 240);
+        public override Color OverflowButtonGradientMiddle => Color.FromArgb(240, 240, 240);
     }
 
     private void SetActiveTool(AnnotationTool tool)

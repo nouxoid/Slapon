@@ -21,5 +21,6 @@
         public static System.Drawing.Image? line => LoadImage(Path.Combine(IconPath, "line.png"));
         public static System.Drawing.Image? text => LoadImage(Path.Combine(IconPath, "text.png"));
         public static System.Drawing.Image? clearall => LoadImage(Path.Combine(IconPath, "clearall.png"));
+        public static System.Drawing.Image? newcapture => LoadImage(Path.Combine(IconPath, "newcapture.png"));
     }
 }
