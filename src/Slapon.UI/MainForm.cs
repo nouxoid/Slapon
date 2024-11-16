@@ -8,6 +8,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using Slapon.UI.Forms;
 using Slapon.UI.Properties;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 public partial class MainForm : Form
 {
@@ -21,6 +22,8 @@ public partial class MainForm : Form
         Text
     }
 
+    private TextBox? _textBox;
+    private Point? _lineStart;
     private AnnotationTool _currentTool = AnnotationTool.None;
     private Point? _drawStart;
     private IAnnotation? _currentAnnotation;
@@ -40,6 +43,8 @@ public partial class MainForm : Form
 
     private ToolStripButton btnRectangleTool;
     private ToolStripButton btnHighlightTool;
+    private ToolStripButton lineButton;
+    private ToolStripButton textButton;
     public MainForm()
     {
         InitializeComponent();
@@ -120,8 +125,8 @@ public partial class MainForm : Form
         // Annotation Group
         btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
         btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
-        var lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
-        var textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
+        lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
+        textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
 
         // Utility Group
         var colorButton = CreateModernButton("Color", null, ChangeColor);
@@ -257,6 +262,8 @@ public partial class MainForm : Form
     {
         btnRectangleTool.BackColor = (_currentTool == AnnotationTool.Rectangle) ? Color.LightBlue : SystemColors.Control;
         btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
+        lineButton.BackColor = (_currentTool == AnnotationTool.Line) ? Color.LightBlue : SystemColors.Control;
+        textButton.BackColor = (_currentTool == AnnotationTool.Text) ? Color.LightBlue : SystemColors.Control;
         // Repeat for other tools as needed
     }
 
@@ -498,9 +505,17 @@ public partial class MainForm : Form
         if (e.Button == MouseButtons.Left)
         {
             _drawStart = e.Location;
+            _lineStart = e.Location;
 
-            // Clear selection when starting new annotation
-            _annotationService.SelectAnnotation(null);
+            if (_currentTool == AnnotationTool.Text)
+            {
+                CreateTextBox(e.Location);
+            }
+            else
+            {
+                // Clear selection when starting new annotation
+                _annotationService.SelectAnnotation(null);
+            }
             pictureBox.Invalidate();
         }
     }
@@ -510,19 +525,18 @@ public partial class MainForm : Form
     {
         if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
-            var rectangle = GetRectangle(_drawStart.Value, e.Location);
-
             // Remove the previous preview annotation if it exists
             if (_currentAnnotation != null)
             {
                 _annotationService.RemoveAnnotation(_currentAnnotation);
             }
 
-            // Create and add the new preview annotation with default opacity
+            // Create and add the new preview annotation
             _currentAnnotation = _currentTool switch
             {
-                AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f),
-                AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f),
+                AnnotationTool.Rectangle => new RectangleAnnotation(GetRectangle(_drawStart.Value, e.Location), _currentColor, 1.0f),
+                AnnotationTool.Highlight => new HighlightAnnotation(GetRectangle(_drawStart.Value, e.Location), _currentColor, 0.4f),
+                AnnotationTool.Line => new LineAnnotation(_lineStart!.Value, e.Location, _currentColor),
                 _ => null
             };
 
@@ -531,7 +545,6 @@ public partial class MainForm : Form
                 _annotationService.AddAnnotation(_currentAnnotation);
             }
 
-            // Invalidate the PictureBox to trigger a repaint
             pictureBox.Invalidate();
         }
     }
@@ -540,32 +553,34 @@ public partial class MainForm : Form
     {
         if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
-            var rectangle = GetRectangle(_drawStart.Value, e.Location);
-
-            // Only create annotation if the rectangle has some size
-            if (rectangle.Width > 1 && rectangle.Height > 1)
+            if (_currentTool != AnnotationTool.Text)
             {
-                IAnnotation? annotation = _currentTool switch
-                {
-                    AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f),
-                    AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f),
-                    _ => null
-                };
+                var rectangle = GetRectangle(_drawStart.Value, e.Location);
 
-                if (annotation != null)
+                // Only create annotation if there's some size/distance
+                if (rectangle.Width > 1 || rectangle.Height > 1)
                 {
-                    // Remove the preview annotation
-                    if (_currentAnnotation != null)
+                    IAnnotation? annotation = _currentTool switch
                     {
-                        _annotationService.RemoveAnnotation(_currentAnnotation);
-                    }
+                        AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f),
+                        AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f),
+                        AnnotationTool.Line => new LineAnnotation(_lineStart!.Value, e.Location, _currentColor),
+                        _ => null
+                    };
 
-                    // Add the final annotation
-                    _annotationService.AddAnnotation(annotation);
-                    _annotationService.SelectAnnotation(annotation);
+                    if (annotation != null)
+                    {
+                        // Remove the preview annotation
+                        if (_currentAnnotation != null)
+                        {
+                            _annotationService.RemoveAnnotation(_currentAnnotation);
+                        }
+
+                        // Add the final annotation
+                        _annotationService.AddAnnotation(annotation);
+                        _annotationService.SelectAnnotation(annotation);
+                    }
                 }
-                // Copy the screenshot with annotations to the clipboard
-                CopyScreenshotWithAnnotationsToClipboard();
             }
 
             _drawStart = null;
@@ -586,7 +601,99 @@ public partial class MainForm : Form
     }
 
 
-    
+    private void CreateTextBox(Point location)
+    {
+        _textBox?.Dispose();
+
+        _textBox = new TextBox
+        {
+            Location = location,
+            BackColor = Color.White,
+            BorderStyle = BorderStyle.FixedSingle,
+            Font = new Font("Arial", 12),
+            ForeColor = _currentColor,
+            Width = 200, // Increased width for better usability
+            Height = 24, // Initial height for single line
+            Multiline = true,
+            MaxLength = 500 // Reasonable limit for text
+        };
+
+        _textBox.KeyDown += TextBox_KeyDown;
+        _textBox.LostFocus += TextBox_LostFocus;
+        _textBox.TextChanged += TextBox_TextChanged; // Add this handler
+
+        pictureBox.Controls.Add(_textBox);
+        _textBox.Focus();
+    }
+
+    // Add this method to handle text box resizing
+    private void TextBox_TextChanged(object? sender, EventArgs e)
+    {
+        if (_textBox == null) return;
+
+        // Calculate required height based on text
+        var textSize = TextRenderer.MeasureText(_textBox.Text + "\n", _textBox.Font);
+        int newHeight = Math.Max(24, Math.Min(100, textSize.Height + 10)); // Min 24, Max 100
+
+        // Adjust width based on content, with minimum and maximum values
+        int newWidth = Math.Max(200, Math.Min(400, textSize.Width + 20));
+
+        if (_textBox.Height != newHeight || _textBox.Width != newWidth)
+        {
+            _textBox.Height = newHeight;
+            _textBox.Width = newWidth;
+        }
+    }
+
+    private void TextBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Enter && !e.Shift)
+        {
+            FinishTextAnnotation();
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Escape)
+        {
+            CancelTextInput();
+            e.Handled = true;
+        }
+    }
+
+    private void TextBox_LostFocus(object? sender, EventArgs e)
+    {
+        FinishTextAnnotation();
+    }
+
+    private void FinishTextAnnotation()
+    {
+        if (_textBox != null && !string.IsNullOrWhiteSpace(_textBox.Text))
+        {
+            var annotation = new TextAnnotation(_textBox.Location, _currentColor, _textBox.Text);
+            _annotationService.AddAnnotation(annotation);
+            _annotationService.SelectAnnotation(annotation);
+        }
+
+        if (_textBox != null)
+        {
+            pictureBox.Controls.Remove(_textBox);
+            _textBox.Dispose();
+            _textBox = null;
+        }
+
+        pictureBox.Invalidate();
+        CopyScreenshotWithAnnotationsToClipboard();
+    }
+
+    private void CancelTextInput()
+    {
+        if (_textBox != null)
+        {
+            pictureBox.Controls.Remove(_textBox);
+            _textBox.Dispose();
+            _textBox = null;
+            pictureBox.Invalidate();
+        }
+    }
 
 
     private void MainForm_Load(object sender, EventArgs e)
