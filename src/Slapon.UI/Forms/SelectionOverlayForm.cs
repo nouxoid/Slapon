@@ -19,19 +19,8 @@ namespace Slapon.UI.Forms
         public SelectionOverlayForm(Bitmap screenshot)
         {
             _screenshot = screenshot;
-            _virtualScreenBounds = GetVirtualScreenBounds();
+            _virtualScreenBounds = SystemInformation.VirtualScreen;
             InitializeOverlay();
-        }
-
-        private Rectangle GetVirtualScreenBounds()
-        {
-            // Get the bounds that encompass all screens
-            var bounds = new Rectangle();
-            foreach (Screen screen in Screen.AllScreens)
-            {
-                bounds = Rectangle.Union(bounds, screen.Bounds);
-            }
-            return bounds;
         }
 
         private void InitializeOverlay()
@@ -39,9 +28,8 @@ namespace Slapon.UI.Forms
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.Manual;
 
-            // Set the form to cover all screens
-            Location = new Point(_virtualScreenBounds.X, _virtualScreenBounds.Y);
-            Size = new Size(_virtualScreenBounds.Width, _virtualScreenBounds.Height);
+            // Set the form to cover all screens using SystemInformation.VirtualScreen
+            this.Bounds = SystemInformation.VirtualScreen;
 
             TopMost = true;
             BackColor = Color.Black;
@@ -53,9 +41,10 @@ namespace Slapon.UI.Forms
             {
                 if (e.Button == MouseButtons.Left)
                 {
-                    _startPoint = e.Location;
+                    _startPoint = this.PointToScreen(e.Location);
                     _isSelecting = true;
                     _selectionRect = Rectangle.Empty;
+                    System.Diagnostics.Debug.WriteLine($"Start position (screen coordinates): {_startPoint}");
                 }
             };
 
@@ -63,7 +52,17 @@ namespace Slapon.UI.Forms
             {
                 if (_isSelecting)
                 {
-                    _selectionRect = GetRectangle(_startPoint, e.Location);
+                    // Get current position in screen coordinates
+                    Point currentPos = this.PointToScreen(e.Location);
+
+                    _selectionRect = new Rectangle(
+                        Math.Min(_startPoint.X, currentPos.X),
+                        Math.Min(_startPoint.Y, currentPos.Y),
+                        Math.Abs(currentPos.X - _startPoint.X),
+                        Math.Abs(currentPos.Y - _startPoint.Y)
+                    );
+
+                    System.Diagnostics.Debug.WriteLine($"Current selection: {_selectionRect}");
                     Invalidate();
                 }
             };
@@ -98,7 +97,10 @@ namespace Slapon.UI.Forms
             {
                 using var brush = new SolidBrush(Color.FromArgb(128, 0, 0, 0));
                 var region = new Region(ClientRectangle);
-                region.Exclude(_selectionRect);
+
+                // Convert screen coordinates to client coordinates for drawing
+                Rectangle clientRect = this.RectangleToClient(_selectionRect);
+                region.Exclude(clientRect);
                 e.Graphics.FillRegion(brush, region);
 
                 // Convert screen coordinates to image coordinates
@@ -110,11 +112,11 @@ namespace Slapon.UI.Forms
                 );
 
                 // Draw the actual screenshot in the selection area
-                e.Graphics.DrawImage(_screenshot, _selectionRect, imageRect, GraphicsUnit.Pixel);
+                e.Graphics.DrawImage(_screenshot, clientRect, imageRect, GraphicsUnit.Pixel);
 
                 // Draw border around selection
                 using var pen = new Pen(Color.White, 2);
-                e.Graphics.DrawRectangle(pen, _selectionRect);
+                e.Graphics.DrawRectangle(pen, clientRect);
             }
         }
 
@@ -122,13 +124,8 @@ namespace Slapon.UI.Forms
         {
             get
             {
-                // Convert screen coordinates to image coordinates
-                return new Rectangle(
-                    _selectionRect.X - _virtualScreenBounds.X,
-                    _selectionRect.Y - _virtualScreenBounds.Y,
-                    _selectionRect.Width,
-                    _selectionRect.Height
-                );
+                // Return the actual screen coordinates
+                return _selectionRect;
             }
         }
 

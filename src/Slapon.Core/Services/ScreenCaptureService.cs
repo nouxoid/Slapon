@@ -1,78 +1,117 @@
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
-
-namespace Slapon.Core.Services
+public class ScreenCaptureService
 {
-    public class ScreenCaptureService
+
+    public Bitmap CaptureScreen()
     {
-        [DllImport("user32.dll")]
-        private static extern int GetSystemMetrics(SystemMetric metric);
+        // Get virtual screen bounds
+        Rectangle virtualScreen = SystemInformation.VirtualScreen;
+        var screenshot = new Bitmap(virtualScreen.Width, virtualScreen.Height);
 
-        private enum SystemMetric
+        using (var graphics = Graphics.FromImage(screenshot))
         {
-            ScreenWidth = 0,
-            ScreenHeight = 1
+            graphics.CopyFromScreen(
+                virtualScreen.Left,
+                virtualScreen.Top,
+                0,
+                0,
+                virtualScreen.Size,
+                CopyPixelOperation.SourceCopy
+            );
         }
 
-        public Bitmap CaptureScreen()
+        return screenshot;
+    }
+
+    private Rectangle GetVirtualScreenBounds()
+    {
+        int left = int.MaxValue;
+        int top = int.MaxValue;
+        int right = int.MinValue;
+        int bottom = int.MinValue;
+
+        foreach (Screen screen in Screen.AllScreens)
         {
-            // Get the total size of all screens
-            Rectangle totalBounds = GetTotalScreenBounds();
+            left = Math.Min(left, screen.Bounds.Left);
+            top = Math.Min(top, screen.Bounds.Top);
+            right = Math.Max(right, screen.Bounds.Right);
+            bottom = Math.Max(bottom, screen.Bounds.Bottom);
+        }
 
-            var screenshot = new Bitmap(totalBounds.Width, totalBounds.Height);
+        return new Rectangle(left, top, right - left, bottom - top);
+    }
 
-            using (var graphics = Graphics.FromImage(screenshot))
+    public Bitmap CaptureRegion(Rectangle region)
+    {
+        try
+        {
+            // Debug the incoming coordinates
+            System.Diagnostics.Debug.WriteLine($"Attempting to capture: X={region.X}, Y={region.Y}, Width={region.Width}, Height={region.Height}");
+
+            // Convert coordinates from virtual space to actual screen space
+            int actualX = region.X;
+            if (actualX > 1920) // If on second monitor and coordinates are wrong
             {
-                // Copy from each screen
-                foreach (Screen screen in Screen.AllScreens)
-                {
-                    // Calculate relative position
-                    var relativeBounds = new Rectangle(
-                        screen.Bounds.X - totalBounds.X,
-                        screen.Bounds.Y - totalBounds.Y,
-                        screen.Bounds.Width,
-                        screen.Bounds.Height
-                    );
-
-                    // Copy this screen's content
-                    graphics.CopyFromScreen(
-                        screen.Bounds.Location,  // Source position
-                        relativeBounds.Location, // Destination position
-                        screen.Bounds.Size       // Size to copy
-                    );
-                }
+                actualX = actualX - 1920; // Adjust to correct screen coordinates
             }
 
-            return screenshot;
-        }
+            Rectangle adjustedRegion = new Rectangle(
+                actualX,
+                region.Y,
+                region.Width,
+                region.Height
+            );
 
-        private Rectangle GetTotalScreenBounds()
-        {
-            // Start with the primary screen
-            Rectangle totalBounds = Screen.PrimaryScreen.Bounds;
+            System.Diagnostics.Debug.WriteLine($"Adjusted capture region: X={adjustedRegion.X}, Y={adjustedRegion.Y}, Width={adjustedRegion.Width}, Height={adjustedRegion.Height}");
 
-            // Union with all other screens
-            foreach (Screen screen in Screen.AllScreens)
-            {
-                totalBounds = Rectangle.Union(totalBounds, screen.Bounds);
-            }
-
-            return totalBounds;
-        }
-
-        public Bitmap CaptureRegion(Rectangle region)
-        {
-            using var fullScreenshot = CaptureScreen();
+            // Create the bitmap for capture
             var regionShot = new Bitmap(region.Width, region.Height);
 
             using (var graphics = Graphics.FromImage(regionShot))
             {
-                graphics.DrawImage(fullScreenshot, new Rectangle(0, 0, region.Width, region.Height),
-                                   region, GraphicsUnit.Pixel);
+                graphics.CopyFromScreen(
+                    adjustedRegion.X,
+                    adjustedRegion.Y,
+                    0,
+                    0,
+                    adjustedRegion.Size,
+                    CopyPixelOperation.SourceCopy
+                );
             }
 
             return regionShot;
         }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Capture error: {ex.Message}");
+            throw;
+        }
+    }
+
+    private Screen GetScreenFromRegion(Rectangle region)
+    {
+        // Find the screen that contains the largest area of the selection
+        Screen bestScreen = Screen.PrimaryScreen;
+        int largestArea = 0;
+
+        foreach (Screen screen in Screen.AllScreens)
+        {
+            Rectangle intersection = Rectangle.Intersect(screen.Bounds, region);
+            int area = intersection.Width * intersection.Height;
+
+            if (area > largestArea)
+            {
+                largestArea = area;
+                bestScreen = screen;
+            }
+        }
+
+        return bestScreen;
+    }
+
+    private IEnumerable<Screen> GetIntersectingScreens(Rectangle region)
+    {
+        // Return all screens that intersect with our selection region
+        return Screen.AllScreens.Where(screen =>
+            Rectangle.Intersect(screen.Bounds, region).IsEmpty == false);
     }
 }

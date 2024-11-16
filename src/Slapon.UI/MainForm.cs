@@ -249,48 +249,62 @@ public partial class MainForm : Form
             BackColor = Color.Transparent,
         };
     }
-
+    private void PrintScreenInfo()
+    {
+        foreach (Screen screen in Screen.AllScreens)
+        {
+            System.Diagnostics.Debug.WriteLine($"\nScreen: {screen.DeviceName}");
+            System.Diagnostics.Debug.WriteLine($"Primary: {screen.Primary}");
+            System.Diagnostics.Debug.WriteLine($"Bounds: X={screen.Bounds.X}, Y={screen.Bounds.Y}, Width={screen.Bounds.Width}, Height={screen.Bounds.Height}");
+            System.Diagnostics.Debug.WriteLine($"Working Area: X={screen.WorkingArea.X}, Y={screen.WorkingArea.Y}, Width={screen.WorkingArea.Width}, Height={screen.WorkingArea.Height}");
+        }
+    }
 
 
     private async void StartScreenCapture(object? sender, EventArgs e)
     {
+        PrintScreenInfo(); // Keeping your debug info printing
         this.WindowState = FormWindowState.Minimized;
         await Task.Delay(200);
 
-        var captureService = new ScreenCaptureService();
-        var screenshot = captureService.CaptureScreen();
-
-        using var overlay = new SelectionOverlayForm(screenshot);
-        if (overlay.ShowDialog() == DialogResult.OK)
+        try
         {
-            var region = overlay.SelectionBounds;
-            var capturedImage = captureService.CaptureRegion(region);
+            var captureService = new ScreenCaptureService();
+            var screenshot = captureService.CaptureScreen();
 
-            _currentImage?.Dispose();
-            _currentImage = capturedImage;
-
-            // Clear existing annotations
-            _annotationService.ClearAnnotations();
-
-            // Update PictureBox on the UI thread
-            if (pictureBox.InvokeRequired)
+            using var overlay = new SelectionOverlayForm(screenshot);
+            if (overlay.ShowDialog() == DialogResult.OK)
             {
+                var region = overlay.SelectionBounds;
+                System.Diagnostics.Debug.WriteLine($"Selected region: {region}");
+
+                var capturedImage = captureService.CaptureRegion(region);
+
+                _currentImage?.Dispose();
+                _currentImage = capturedImage;
+
+                // Clear existing annotations
+                _annotationService.ClearAnnotations();
+
+                // Update PictureBox on the UI thread
                 pictureBox.Invoke(() =>
                 {
                     pictureBox.Image = _currentImage;
                     SetWindowAndImageSize(capturedImage);
                 });
-            }
-            else
-            {
-                pictureBox.Image = _currentImage;
-                SetWindowAndImageSize(capturedImage);
-            }
-            // Copy the screenshot with annotations to the clipboard
-            CopyScreenshotWithAnnotationsToClipboard();
-        }
 
-        this.WindowState = FormWindowState.Normal;
+                CopyScreenshotWithAnnotationsToClipboard();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Screenshot error: {ex.Message}");
+            MessageBox.Show($"Error capturing screenshot: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            this.WindowState = FormWindowState.Normal;
+        }
     }
 
     private void CopyScreenshotWithAnnotationsToClipboard()
