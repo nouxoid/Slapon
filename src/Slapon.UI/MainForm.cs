@@ -15,16 +15,16 @@ public partial class MainForm : Form
 
     private enum AnnotationTool
     {
-        None,
         Rectangle,
         Highlight,
         Line,
-        Text
+        Text,
+        Select
     }
 
     private TextBox? _textBox;
     private Point? _lineStart;
-    private AnnotationTool _currentTool = AnnotationTool.None;
+    private AnnotationTool _currentTool = AnnotationTool.Select;
     private Point? _drawStart;
     private IAnnotation? _currentAnnotation;
     private readonly Color _defaultHighlightColor = Color.Yellow;
@@ -275,18 +275,12 @@ public partial class MainForm : Form
 
         UpdateToolButtons();
 
-        string selectTooltip = _currentTool == AnnotationTool.Select ? "Select Tool (Selected)" : "Select Tool";
-        string rectangleTooltip = _currentTool == AnnotationTool.Rectangle ? "Rectangle Tool (Selected)" : "Rectangle Tool";
-        string highlightTooltip = _currentTool == AnnotationTool.Highlight ? "Highlight Tool (Selected)" : "Highlight Tool";
-        string lineTooltip = _currentTool == AnnotationTool.Line ? "Line Tool (Selected)" : "Line Tool";
-        string textTooltip = _currentTool == AnnotationTool.Text ? "Text Tool (Selected)" : "Text Tool";
-
-        var toolTip = new ToolTip();
-        toolTip.SetToolTip(selectButton, selectTooltip);
-        toolTip.SetToolTip(btnRectangleTool, rectangleTooltip);
-        toolTip.SetToolTip(btnHighlightTool, highlightTooltip);
-        toolTip.SetToolTip(lineButton, lineTooltip);
-        toolTip.SetToolTip(textButton, textTooltip);
+        // Set tooltips directly on the ToolStripButtons
+        selectButton.ToolTipText = _currentTool == AnnotationTool.Select ? "Select Tool (Selected)" : "Select Tool";
+        btnRectangleTool.ToolTipText = _currentTool == AnnotationTool.Rectangle ? "Rectangle Tool (Selected)" : "Rectangle Tool";
+        btnHighlightTool.ToolTipText = _currentTool == AnnotationTool.Highlight ? "Highlight Tool (Selected)" : "Highlight Tool";
+        lineButton.ToolTipText = _currentTool == AnnotationTool.Line ? "Line Tool (Selected)" : "Line Tool";
+        textButton.ToolTipText = _currentTool == AnnotationTool.Text ? "Text Tool (Selected)" : "Text Tool";
     }
 
     private void UpdateToolButtons()
@@ -295,8 +289,7 @@ public partial class MainForm : Form
         btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
         lineButton.BackColor = (_currentTool == AnnotationTool.Line) ? Color.LightBlue : SystemColors.Control;
         textButton.BackColor = (_currentTool == AnnotationTool.Text) ? Color.LightBlue : SystemColors.Control;
-        selectButton.BackColor = (_currentTool == AnnotationTool.None) ? Color.LightBlue : SystemColors.Control;
-        // Repeat for other tools as needed
+        selectButton.BackColor = (_currentTool == AnnotationTool.Select) ? Color.LightBlue : SystemColors.Control;
     }
 
     private void BtnRectangleTool_Click(object sender, EventArgs e)
