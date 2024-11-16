@@ -45,6 +45,9 @@ public partial class MainForm : Form
     private ToolStripButton btnHighlightTool;
     private ToolStripButton lineButton;
     private ToolStripButton textButton;
+    // Add this with your other button declarations
+    private ToolStripButton selectButton;
+
     public MainForm()
     {
         InitializeComponent();
@@ -127,7 +130,7 @@ public partial class MainForm : Form
         btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
         lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
         textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
-
+        selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select));
         // Utility Group
         var colorButton = CreateModernButton("Color", null, ChangeColor);
         var clearAllButton = CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations());
@@ -159,6 +162,7 @@ public partial class MainForm : Form
             btnHighlightTool,
             lineButton,
             textButton,
+            selectButton,
             new ToolStripSeparator(),
             colorButton,
             clearAllButton,
@@ -261,12 +265,37 @@ public partial class MainForm : Form
         UpdateToolbarState();
     }
 
+    private void UpdateToolbarState()
+    {
+        selectButton.Checked = (_currentTool == AnnotationTool.Select);
+        btnRectangleTool.Checked = (_currentTool == AnnotationTool.Rectangle);
+        btnHighlightTool.Checked = (_currentTool == AnnotationTool.Highlight);
+        lineButton.Checked = (_currentTool == AnnotationTool.Line);
+        textButton.Checked = (_currentTool == AnnotationTool.Text);
+
+        UpdateToolButtons();
+
+        string selectTooltip = _currentTool == AnnotationTool.Select ? "Select Tool (Selected)" : "Select Tool";
+        string rectangleTooltip = _currentTool == AnnotationTool.Rectangle ? "Rectangle Tool (Selected)" : "Rectangle Tool";
+        string highlightTooltip = _currentTool == AnnotationTool.Highlight ? "Highlight Tool (Selected)" : "Highlight Tool";
+        string lineTooltip = _currentTool == AnnotationTool.Line ? "Line Tool (Selected)" : "Line Tool";
+        string textTooltip = _currentTool == AnnotationTool.Text ? "Text Tool (Selected)" : "Text Tool";
+
+        var toolTip = new ToolTip();
+        toolTip.SetToolTip(selectButton, selectTooltip);
+        toolTip.SetToolTip(btnRectangleTool, rectangleTooltip);
+        toolTip.SetToolTip(btnHighlightTool, highlightTooltip);
+        toolTip.SetToolTip(lineButton, lineTooltip);
+        toolTip.SetToolTip(textButton, textTooltip);
+    }
+
     private void UpdateToolButtons()
     {
         btnRectangleTool.BackColor = (_currentTool == AnnotationTool.Rectangle) ? Color.LightBlue : SystemColors.Control;
         btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
         lineButton.BackColor = (_currentTool == AnnotationTool.Line) ? Color.LightBlue : SystemColors.Control;
         textButton.BackColor = (_currentTool == AnnotationTool.Text) ? Color.LightBlue : SystemColors.Control;
+        selectButton.BackColor = (_currentTool == AnnotationTool.None) ? Color.LightBlue : SystemColors.Control;
         // Repeat for other tools as needed
     }
 
