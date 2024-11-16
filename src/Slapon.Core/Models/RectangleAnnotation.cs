@@ -1,14 +1,5 @@
-using System.Drawing;
-using System.Drawing.Drawing2D;
-
-namespace Slapon.Core.Models;
 using Slapon.Core.Interfaces;
 using Slapon.Core.Models;
-using Slapon.Core.Services;
-using System.Drawing.Imaging;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Net;
 
 public class RectangleAnnotation : BaseAnnotation
 {
@@ -22,10 +13,6 @@ public class RectangleAnnotation : BaseAnnotation
     public override void Draw(Graphics g)
     {
         using var pen = new Pen(GetTransparentColor(), BorderThickness);
-      /*  if (IsSelected)
-        {
-            pen.DashStyle = DashStyle.Dash;
-        }*/
         g.DrawRectangle(pen, Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height);
     }
 
@@ -39,6 +26,12 @@ public class RectangleAnnotation : BaseAnnotation
     public override bool Contains(Point point)
     {
         return Contains(new PointF(point.X, point.Y));
+    }
+
+    // Override HitTest to use the inflated bounds for better hit detection
+    public override bool HitTest(Point point)
+    {
+        return Contains(point);
     }
 
     public override IAnnotation Clone()

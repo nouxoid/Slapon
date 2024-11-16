@@ -15,4 +15,6 @@ public interface IAnnotation
     void MoveTo(PointF location);
     IAnnotation Clone();
     bool Contains(Point point);
+    bool HitTest(Point point);
+    void Move(int deltaX, int deltaY);
 }

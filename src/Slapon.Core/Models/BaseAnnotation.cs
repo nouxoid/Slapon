@@ -37,8 +37,26 @@ public abstract class BaseAnnotation : IAnnotation
         Bounds = new RectangleF(location, Bounds.Size);
     }
 
+    public virtual bool HitTest(Point point)
+    {
+        return Contains(point);
+    }
+
+    public virtual void Move(int deltaX, int deltaY)
+    {
+        Bounds = new RectangleF(
+            Bounds.X + deltaX,
+            Bounds.Y + deltaY,
+            Bounds.Width,
+            Bounds.Height
+        );
+    }
+
     protected Color GetTransparentColor()
     {
         return Color.FromArgb((int)(Opacity * 255), Color);
     }
+
+
+
 }
