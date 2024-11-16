@@ -255,7 +255,10 @@ public partial class MainForm : Form
     private void SetActiveTool(AnnotationTool tool)
     {
         _currentTool = tool;
-        UpdateToolButtons();
+        UpdateCursor();
+
+        // Update UI to reflect current tool (you'll need to implement this)
+        UpdateToolbarState();
     }
 
     private void UpdateToolButtons()
@@ -395,19 +398,27 @@ public partial class MainForm : Form
 
     private void CopyScreenshotWithAnnotationsToClipboard()
     {
-        if (_currentImage == null) return;
+        if (_currentImage == null) return;  // Early return if no image
 
-        var bitmap = new Bitmap(_currentImage.Width, _currentImage.Height);
-        using (var g = Graphics.FromImage(bitmap))
+        try
         {
-            g.DrawImage(_currentImage, Point.Empty);
-            foreach (var annotation in _annotationService.Annotations)
+            using var bitmap = new Bitmap(_currentImage.Width, _currentImage.Height);
+            using (var g = Graphics.FromImage(bitmap))
             {
-                annotation.Draw(g);
+                g.DrawImage(_currentImage, Point.Empty);
+                foreach (var annotation in _annotationService.Annotations)
+                {
+                    annotation.Draw(g);
+                }
             }
+            Clipboard.SetImage(bitmap);
         }
-
-        Clipboard.SetImage(bitmap);
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error in CopyScreenshotWithAnnotationsToClipboard: {ex.Message}");
+            // Optionally show a message to the user
+            // MessageBox.Show("Failed to copy to clipboard", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void SetWindowAndImageSize(Bitmap capturedImage)
@@ -502,6 +513,8 @@ public partial class MainForm : Form
 
     private void PictureBox_MouseDown(object? sender, MouseEventArgs e)
     {
+        if (_currentImage == null) return;
+
         if (e.Button == MouseButtons.Left)
         {
             _drawStart = e.Location;
@@ -509,11 +522,14 @@ public partial class MainForm : Form
 
             if (_currentTool == AnnotationTool.Text)
             {
-                CreateTextBox(e.Location);
+                // Only create new textbox if we're in text mode and don't have an active textbox
+                if (_textBox == null)
+                {
+                    CreateTextBox(e.Location);
+                }
             }
             else
             {
-                // Clear selection when starting new annotation
                 _annotationService.SelectAnnotation(null);
             }
             pictureBox.Invalidate();
@@ -603,6 +619,8 @@ public partial class MainForm : Form
 
     private void CreateTextBox(Point location)
     {
+        if (_currentImage == null) return;
+
         _textBox?.Dispose();
 
         _textBox = new TextBox
@@ -612,15 +630,19 @@ public partial class MainForm : Form
             BorderStyle = BorderStyle.FixedSingle,
             Font = new Font("Arial", 12),
             ForeColor = _currentColor,
-            Width = 200, // Increased width for better usability
-            Height = 24, // Initial height for single line
+            Width = 200,
+            Height = 24,
             Multiline = true,
-            MaxLength = 500 // Reasonable limit for text
+            MaxLength = 500
         };
+
+        // Add tooltip to help users
+        var tooltip = new ToolTip();
+        tooltip.SetToolTip(_textBox, "Enter: Confirm | Esc: Cancel | Click away: Confirm if text entered");
 
         _textBox.KeyDown += TextBox_KeyDown;
         _textBox.LostFocus += TextBox_LostFocus;
-        _textBox.TextChanged += TextBox_TextChanged; // Add this handler
+        _textBox.TextChanged += TextBox_TextChanged;
 
         pictureBox.Controls.Add(_textBox);
         _textBox.Focus();
@@ -649,39 +671,148 @@ public partial class MainForm : Form
     {
         if (e.KeyCode == Keys.Enter && !e.Shift)
         {
-            FinishTextAnnotation();
+            e.SuppressKeyPress = true;
             e.Handled = true;
+            ConfirmTextAnnotation();
         }
         else if (e.KeyCode == Keys.Escape)
         {
-            CancelTextInput();
+            e.SuppressKeyPress = true;
             e.Handled = true;
+
+            if (!string.IsNullOrWhiteSpace(_textBox?.Text))
+            {
+                // Show confirmation dialog only if there's text
+                if (MessageBox.Show("Discard text annotation?", "Confirm Cancel",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    CancelTextAnnotation();
+                }
+                else
+                {
+                    _textBox?.Focus(); // Return focus if user decides not to cancel
+                }
+            }
+            else
+            {
+                CancelTextAnnotation();
+            }
         }
     }
 
     private void TextBox_LostFocus(object? sender, EventArgs e)
     {
-        FinishTextAnnotation();
+        if (_textBox == null) return;
+
+        // If text is empty, just cancel
+        if (string.IsNullOrWhiteSpace(_textBox.Text))
+        {
+            CancelTextAnnotation();
+        }
+        else
+        {
+            ConfirmTextAnnotation();
+        }
+    }
+
+    private void ConfirmTextAnnotation()
+    {
+        if (_textBox == null) return;
+
+        try
+        {
+            var textBox = _textBox;  // Store reference
+            _textBox = null;  // Clear reference immediately
+
+            if (!string.IsNullOrWhiteSpace(textBox.Text))
+            {
+                var annotation = new TextAnnotation(textBox.Location, _currentColor, textBox.Text);
+                _annotationService.AddAnnotation(annotation);
+                _annotationService.SelectAnnotation(annotation);
+            }
+
+            pictureBox.Controls.Remove(textBox);
+            textBox.Dispose();
+
+            pictureBox.Invalidate();
+
+            if (_currentImage != null)
+            {
+                CopyScreenshotWithAnnotationsToClipboard();
+            }
+
+            // Reset to default tool after confirming text
+            SetActiveTool(AnnotationTool.Select);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Exception in ConfirmTextAnnotation: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+    }
+
+    private void CancelTextAnnotation()
+    {
+        if (_textBox == null) return;
+
+        var textBox = _textBox;
+        _textBox = null;
+
+        pictureBox.Controls.Remove(textBox);
+        textBox.Dispose();
+        pictureBox.Invalidate();
+
+        // Reset to default tool after canceling text
+        SetActiveTool(AnnotationTool.Select);
+    }
+
+    
+
+
+
+    private void UpdateCursor()
+    {
+        if (_currentTool == AnnotationTool.Text)
+        {
+            pictureBox.Cursor = Cursors.IBeam;
+        }
+        else
+        {
+            pictureBox.Cursor = Cursors.Default;
+        }
     }
 
     private void FinishTextAnnotation()
     {
-        if (_textBox != null && !string.IsNullOrWhiteSpace(_textBox.Text))
-        {
-            var annotation = new TextAnnotation(_textBox.Location, _currentColor, _textBox.Text);
-            _annotationService.AddAnnotation(annotation);
-            _annotationService.SelectAnnotation(annotation);
-        }
+        if (_textBox == null) return;  // Early return if textbox is already disposed
 
-        if (_textBox != null)
+        try
         {
-            pictureBox.Controls.Remove(_textBox);
-            _textBox.Dispose();
-            _textBox = null;
-        }
+            var textBox = _textBox;  // Store reference
+            _textBox = null;  // Clear reference immediately
 
-        pictureBox.Invalidate();
-        CopyScreenshotWithAnnotationsToClipboard();
+            if (!string.IsNullOrWhiteSpace(textBox.Text))
+            {
+                var annotation = new TextAnnotation(textBox.Location, _currentColor, textBox.Text);
+                _annotationService.AddAnnotation(annotation);
+                _annotationService.SelectAnnotation(annotation);
+            }
+
+            pictureBox.Controls.Remove(textBox);
+            textBox.Dispose();
+
+            pictureBox.Invalidate();
+
+            if (_currentImage != null)
+            {
+                CopyScreenshotWithAnnotationsToClipboard();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Exception in FinishTextAnnotation: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
     }
 
     private void CancelTextInput()
