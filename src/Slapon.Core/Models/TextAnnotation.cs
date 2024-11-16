@@ -1,8 +1,8 @@
 ﻿using System.Drawing;
 using System.Drawing.Drawing2D;
+using Slapon.Core.Interfaces;
 
 namespace Slapon.Core.Models;
-using Slapon.Core.Interfaces;
 
 public class TextAnnotation : BaseAnnotation
 {
@@ -59,6 +59,11 @@ public class TextAnnotation : BaseAnnotation
     public override bool Contains(Point point)
     {
         return Contains(new PointF(point.X, point.Y));
+    }
+
+    public override bool HitTest(Point point)
+    {
+        return Contains(point);
     }
 
     public override IAnnotation Clone()

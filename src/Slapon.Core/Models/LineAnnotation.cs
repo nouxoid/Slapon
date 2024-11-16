@@ -1,13 +1,13 @@
 ﻿using System.Drawing;
 using System.Drawing.Drawing2D;
+using Slapon.Core.Interfaces;
 
 namespace Slapon.Core.Models;
-using Slapon.Core.Interfaces;
 
 public class LineAnnotation : BaseAnnotation
 {
-    private readonly Point _start;
-    private readonly Point _end;
+    private Point _start;
+    private Point _end;
     public float LineThickness { get; set; } = 2f;
 
     public LineAnnotation(Point start, Point end, Color color)
@@ -53,5 +53,20 @@ public class LineAnnotation : BaseAnnotation
             LineThickness = LineThickness,
             IsSelected = IsSelected
         };
+    }
+
+    public override void Move(int deltaX, int deltaY)
+    {
+        _start = new Point(_start.X + deltaX, _start.Y + deltaY);
+        _end = new Point(_end.X + deltaX, _end.Y + deltaY);
+        Bounds = GetBounds(_start, _end);
+    }
+
+    public override bool HitTest(Point point)
+    {
+        using var path = new GraphicsPath();
+        path.AddLine(_start, _end);
+        using var pen = new Pen(Color.Black, LineThickness * 5); // Wider hit area for easier selection
+        return path.IsOutlineVisible(point, pen);
     }
 }

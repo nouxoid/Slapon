@@ -29,6 +29,11 @@ public partial class MainForm : Form
     private IAnnotation? _currentAnnotation;
     private readonly Color _defaultHighlightColor = Color.Yellow;
 
+    private Point? _dragStart;
+    private Point _lastMousePosition;
+    private IAnnotation? _draggedAnnotation;
+
+
     private readonly IAnnotationService _annotationService;
     private readonly IAnnotationFactory _annotationFactory;
     private Panel scrollablePanel;
@@ -542,9 +547,26 @@ public partial class MainForm : Form
             _drawStart = e.Location;
             _lineStart = e.Location;
 
-            if (_currentTool == AnnotationTool.Text)
+            if (_currentTool == AnnotationTool.Select)
             {
-                // Only create new textbox if we're in text mode and don't have an active textbox
+                // Try to select an annotation under the cursor
+                var clickedAnnotation = _annotationService.Annotations
+                    .FirstOrDefault(a => a.HitTest(e.Location));
+
+                if (clickedAnnotation != null)
+                {
+                    _dragStart = e.Location;
+                    _lastMousePosition = e.Location;
+                    _draggedAnnotation = clickedAnnotation;
+                    _annotationService.SelectAnnotation(clickedAnnotation);
+                }
+                else
+                {
+                    _annotationService.SelectAnnotation(null);
+                }
+            }
+            else if (_currentTool == AnnotationTool.Text)
+            {
                 if (_textBox == null)
                 {
                     CreateTextBox(e.Location);
@@ -554,6 +576,7 @@ public partial class MainForm : Form
             {
                 _annotationService.SelectAnnotation(null);
             }
+
             pictureBox.Invalidate();
         }
     }
@@ -561,6 +584,21 @@ public partial class MainForm : Form
 
     private void PictureBox_MouseMove(object sender, MouseEventArgs e)
     {
+        if (_currentTool == AnnotationTool.Select && e.Button == MouseButtons.Left && _draggedAnnotation != null)
+        {
+            // Calculate the offset from last position
+            int deltaX = e.Location.X - _lastMousePosition.X;
+            int deltaY = e.Location.Y - _lastMousePosition.Y;
+
+            // Move the annotation
+            _draggedAnnotation.Move(deltaX, deltaY);
+
+            // Update last mouse position
+            _lastMousePosition = e.Location;
+            pictureBox.Invalidate();
+            return;
+        }
+
         if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
             // Remove the previous preview annotation if it exists
@@ -589,6 +627,14 @@ public partial class MainForm : Form
 
     private void PictureBox_MouseUp(object sender, MouseEventArgs e)
     {
+        if (_currentTool == AnnotationTool.Select && _draggedAnnotation != null)
+        {
+            _dragStart = null;
+            _draggedAnnotation = null;
+            pictureBox.Invalidate();
+            return;
+        }
+
         if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
             if (_currentTool != AnnotationTool.Text)
