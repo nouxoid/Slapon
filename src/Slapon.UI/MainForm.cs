@@ -167,38 +167,67 @@ public partial class MainForm : Form
         copyButton.Alignment = ToolStripItemAlignment.Right;
         saveButton.Alignment = ToolStripItemAlignment.Right;
 
-        // Expanding separator for right alignment
-        var expandingSeparator = new ToolStripSeparator
+        // Instead of None, we'll use Left alignment for the center items
+        btnRectangleTool.Alignment = ToolStripItemAlignment.Left;
+        btnHighlightTool.Alignment = ToolStripItemAlignment.Left;
+        lineButton.Alignment = ToolStripItemAlignment.Left;
+        textButton.Alignment = ToolStripItemAlignment.Left;
+        selectButton.Alignment = ToolStripItemAlignment.Left;
+        clearAllButton.Alignment = ToolStripItemAlignment.Left;
+        colorPickerButton.Alignment = ToolStripItemAlignment.Left;
+
+        foreach (var colorButton in colorButtons)
+        {
+            colorButton.Alignment = ToolStripItemAlignment.Left;
+        }
+
+        // Create springs with specific alignments
+        var leftSpring = new ToolStripSeparator
+        {
+            AutoSize = true,
+            Margin = new Padding(0),
+            Alignment = ToolStripItemAlignment.Left
+        };
+
+        var rightSpring = new ToolStripSeparator
         {
             AutoSize = true,
             Margin = new Padding(0),
             Alignment = ToolStripItemAlignment.Right
         };
 
-        // Add all items to toolbar
+        // Add items to toolbar in order
         toolStrip.Items.AddRange(new ToolStripItem[]
         {
-            new ToolStripSeparator(),
-            screenshotButton,
-            new ToolStripSeparator(),
-            btnRectangleTool,
-            btnHighlightTool,
-            lineButton,
-            textButton,
-            selectButton,
-            new ToolStripSeparator(),
+        // Left side
+        screenshotButton,
+
+        
+        // Left spring (pushes items to center)
+        leftSpring
+        });
+
+        // Add center items
+        toolStrip.Items.AddRange(new ToolStripItem[]
+        {
+        btnRectangleTool,
+        btnHighlightTool,
+        lineButton,
+        textButton,
+        selectButton,
+        new ToolStripSeparator { Alignment = ToolStripItemAlignment.Left }
         });
 
         // Add color buttons
         toolStrip.Items.AddRange(colorButtons.ToArray());
         toolStrip.Items.Add(colorPickerButton);
 
-        // Add remaining items
+        // Add remaining center items and right items
         toolStrip.Items.AddRange(new ToolStripItem[]
         {
-        new ToolStripSeparator(),
+        new ToolStripSeparator { Alignment = ToolStripItemAlignment.Left },
         clearAllButton,
-        expandingSeparator,
+        rightSpring,
         copyButton,
         saveButton
         });
