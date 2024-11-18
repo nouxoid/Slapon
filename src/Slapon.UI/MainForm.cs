@@ -56,6 +56,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+        this.BackColor = Color.DarkGray;
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
         _screenCaptureService = new ScreenCaptureService();
@@ -120,10 +121,10 @@ public partial class MainForm : Form
         {
             Renderer = new CustomToolStripRenderer(),
             GripStyle = ToolStripGripStyle.Hidden,
-            BackColor = Color.FromArgb(240, 240, 240), // Light gray background
+            BackColor = Color.FromArgb(245, 245, 245), // Light gray background
             ForeColor = Color.FromArgb(50, 50, 50), // Darker text color
             Padding = new Padding(2), // Reduced padding
-            Height = 32, // Reduced height
+            Height = 48, // Reduced height
             Dock = DockStyle.Top
         };
 
@@ -195,22 +196,24 @@ public partial class MainForm : Form
         {
             Text = text,
             DisplayStyle = icon != null && text != "" ? ToolStripItemDisplayStyle.ImageAndText :
-                      icon != null ? ToolStripItemDisplayStyle.Image :
-                      ToolStripItemDisplayStyle.Text,
+                          icon != null ? ToolStripItemDisplayStyle.Image :
+                          ToolStripItemDisplayStyle.Text,
             AutoSize = true,
-            Margin = new Padding(1), // Reduced margin
-            Padding = new Padding(3), // Reduced padding
-            ForeColor = Color.FromArgb(50, 50, 50) // Darker text color
+            Margin = new Padding(2), // Slightly increased margin
+            Padding = new Padding(8, 6, 8, 6), // Increased padding for wider buttons
+            ForeColor = Color.FromArgb(50, 50, 50), // Darker text color
+            Width = 40 // Minimum width for the button
         };
 
         if (icon != null)
         {
-            var size = new Size(20, 20); // Slightly smaller icons
+            var size = new Size(24, 24); // Slightly larger icons
             var resizedImage = new Bitmap(icon, size);
             button.Image = resizedImage;
             button.ImageAlign = ContentAlignment.MiddleCenter;
             button.TextImageRelation = TextImageRelation.ImageBeforeText;
             button.ImageScaling = ToolStripItemImageScaling.None;
+            button.ImageTransparentColor = Color.Transparent;
         }
         else
         {
