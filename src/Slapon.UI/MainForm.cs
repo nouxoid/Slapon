@@ -125,22 +125,28 @@ public partial class MainForm : Form
             GripStyle = ToolStripGripStyle.Hidden,
             BackColor = Color.FromArgb(245, 245, 245),
             ForeColor = Color.FromArgb(50, 50, 50),
-            Padding = new Padding(2),
+            Padding = new Padding(8, 2, 8, 2),
             Height = 48,
             Dock = DockStyle.Top
         };
 
-        // Create buttons
-        var screenshotButton = CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture);
-        btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
-        btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
-        lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
-        textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
-        selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select));
-        var clearAllButton = CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations());
+        // Create all buttons
+        var leftGroup = new List<ToolStripItem>
+    {
+        CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture)
+    };
+
+        var centerGroup = new List<ToolStripItem>
+        {
+            btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle)),
+            btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight)),
+            lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line)),
+            textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text)),
+            selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select)),
+            new ToolStripSeparator()
+        };
 
         // Create color buttons
-        var colorButtons = new List<ToolStripItem>();
         var commonColors = new[]
         {
         Color.FromArgb(255, 51, 51),   // Red
@@ -154,34 +160,24 @@ public partial class MainForm : Form
         {
             var colorButton = CreateColorButton(color);
             colorButton.Tag = "color";
-            colorButtons.Add(colorButton);
+            centerGroup.Add(colorButton);
         }
 
-        // Create color picker dropdown
+        // Add color picker and clear button to center group
         var colorPickerButton = CreateModernButton("▼", null, ChangeColor);
         colorPickerButton.Width = 20;
+        centerGroup.Add(colorPickerButton);
+        centerGroup.Add(new ToolStripSeparator());
+        centerGroup.Add(CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations()));
 
-        // Right-aligned buttons
-        var copyButton = CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
-        var saveButton = CreateModernButton("Save", null, SaveImage);
-        copyButton.Alignment = ToolStripItemAlignment.Right;
-        saveButton.Alignment = ToolStripItemAlignment.Right;
+        // Create right-aligned buttons
+        var rightGroup = new List<ToolStripItem>
+    {
+        CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard()),
+        CreateModernButton("Save", null, SaveImage)
+    };
 
-        // Instead of None, we'll use Left alignment for the center items
-        btnRectangleTool.Alignment = ToolStripItemAlignment.Left;
-        btnHighlightTool.Alignment = ToolStripItemAlignment.Left;
-        lineButton.Alignment = ToolStripItemAlignment.Left;
-        textButton.Alignment = ToolStripItemAlignment.Left;
-        selectButton.Alignment = ToolStripItemAlignment.Left;
-        clearAllButton.Alignment = ToolStripItemAlignment.Left;
-        colorPickerButton.Alignment = ToolStripItemAlignment.Left;
-
-        foreach (var colorButton in colorButtons)
-        {
-            colorButton.Alignment = ToolStripItemAlignment.Left;
-        }
-
-        // Create springs with specific alignments
+        // Create springs
         var leftSpring = new ToolStripSeparator
         {
             AutoSize = true,
@@ -196,41 +192,23 @@ public partial class MainForm : Form
             Alignment = ToolStripItemAlignment.Right
         };
 
-        // Add items to toolbar in order
-        toolStrip.Items.AddRange(new ToolStripItem[]
+        // Set alignments
+        foreach (var item in centerGroup)
         {
-        // Left side
-        screenshotButton,
+            item.Alignment = ToolStripItemAlignment.Left;
+        }
 
-        
-        // Left spring (pushes items to center)
-        leftSpring
-        });
-
-        // Add center items
-        toolStrip.Items.AddRange(new ToolStripItem[]
+        foreach (var item in rightGroup)
         {
-        btnRectangleTool,
-        btnHighlightTool,
-        lineButton,
-        textButton,
-        selectButton,
-        new ToolStripSeparator { Alignment = ToolStripItemAlignment.Left }
-        });
+            item.Alignment = ToolStripItemAlignment.Right;
+        }
 
-        // Add color buttons
-        toolStrip.Items.AddRange(colorButtons.ToArray());
-        toolStrip.Items.Add(colorPickerButton);
-
-        // Add remaining center items and right items
-        toolStrip.Items.AddRange(new ToolStripItem[]
-        {
-        new ToolStripSeparator { Alignment = ToolStripItemAlignment.Left },
-        clearAllButton,
-        rightSpring,
-        copyButton,
-        saveButton
-        });
+        // Add all items to toolbar in correct order
+        toolStrip.Items.AddRange(leftGroup.ToArray());
+        toolStrip.Items.Add(leftSpring);
+        toolStrip.Items.AddRange(centerGroup.ToArray());
+        toolStrip.Items.Add(rightSpring);
+        toolStrip.Items.AddRange(rightGroup.ToArray());
 
         Controls.Add(panel);
         Controls.Add(toolStrip);
