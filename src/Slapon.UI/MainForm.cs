@@ -118,6 +118,14 @@ public partial class MainForm : Form
         panel.Resize += Panel_Resize;
         panel.Controls.Add(pictureBox);
 
+        // First create all the tool buttons
+        btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
+        btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
+        lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
+        textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
+        selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select));
+
+
         // Toolbar setup
         toolStrip = new ToolStrip
         {
@@ -138,11 +146,11 @@ public partial class MainForm : Form
 
         var centerGroup = new List<ToolStripItem>
         {
-            btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle)),
-            btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight)),
-            lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line)),
-            textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text)),
-            selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select)),
+            btnRectangleTool,
+            btnHighlightTool,
+            lineButton,
+            textButton,
+            selectButton,
             new ToolStripSeparator()
         };
 
@@ -378,15 +386,21 @@ public partial class MainForm : Form
 
     private void UpdateToolbarState()
     {
+        // Update button states
         selectButton.Checked = (_currentTool == AnnotationTool.Select);
         btnRectangleTool.Checked = (_currentTool == AnnotationTool.Rectangle);
         btnHighlightTool.Checked = (_currentTool == AnnotationTool.Highlight);
         lineButton.Checked = (_currentTool == AnnotationTool.Line);
         textButton.Checked = (_currentTool == AnnotationTool.Text);
 
-        UpdateToolButtons();
+        // Update button backgrounds
+        selectButton.BackColor = (_currentTool == AnnotationTool.Select) ? Color.LightBlue : SystemColors.Control;
+        btnRectangleTool.BackColor = (_currentTool == AnnotationTool.Rectangle) ? Color.LightBlue : SystemColors.Control;
+        btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
+        lineButton.BackColor = (_currentTool == AnnotationTool.Line) ? Color.LightBlue : SystemColors.Control;
+        textButton.BackColor = (_currentTool == AnnotationTool.Text) ? Color.LightBlue : SystemColors.Control;
 
-        // Set tooltips directly on the ToolStripButtons
+        // Update tooltips
         selectButton.ToolTipText = _currentTool == AnnotationTool.Select ? "Select Tool (Selected)" : "Select Tool";
         btnRectangleTool.ToolTipText = _currentTool == AnnotationTool.Rectangle ? "Rectangle Tool (Selected)" : "Rectangle Tool";
         btnHighlightTool.ToolTipText = _currentTool == AnnotationTool.Highlight ? "Highlight Tool (Selected)" : "Highlight Tool";
@@ -394,24 +408,9 @@ public partial class MainForm : Form
         textButton.ToolTipText = _currentTool == AnnotationTool.Text ? "Text Tool (Selected)" : "Text Tool";
     }
 
-    private void UpdateToolButtons()
-    {
-        btnRectangleTool.BackColor = (_currentTool == AnnotationTool.Rectangle) ? Color.LightBlue : SystemColors.Control;
-        btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
-        lineButton.BackColor = (_currentTool == AnnotationTool.Line) ? Color.LightBlue : SystemColors.Control;
-        textButton.BackColor = (_currentTool == AnnotationTool.Text) ? Color.LightBlue : SystemColors.Control;
-        selectButton.BackColor = (_currentTool == AnnotationTool.Select) ? Color.LightBlue : SystemColors.Control;
-    }
+    
 
-    private void BtnRectangleTool_Click(object sender, EventArgs e)
-    {
-        SetActiveTool(AnnotationTool.Rectangle);
-    }
-
-    private void BtnHighlightTool_Click(object sender, EventArgs e)
-    {
-        SetActiveTool(AnnotationTool.Highlight);
-    }
+   
 
     private void Panel_Resize(object? sender, EventArgs e)
     {
@@ -1179,6 +1178,6 @@ public partial class MainForm : Form
 
     private void MainForm_Load(object sender, EventArgs e)
     {
-        UpdateToolButtons();
+        UpdateToolbarState();
     }
 }
