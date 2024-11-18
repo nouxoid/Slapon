@@ -233,25 +233,33 @@ public partial class MainForm : Form
             AutoSize = false,
             Size = new Size(24, 24),
             Margin = new Padding(2),
-            BackColor = color,
+            BackColor = Color.Transparent,
             Tag = "color"
         };
 
-        // Add a border to make it look better
         button.Paint += (s, e) =>
         {
             if (s is ToolStripButton btn)
             {
-                // Draw the color fill
-                using (var brush = new SolidBrush(btn.BackColor))
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+                var circleRect = new Rectangle(4, 4, btn.Width - 8, btn.Height - 8);
+
+                // Draw the color circle
+                using (var brush = new SolidBrush(color))
                 {
-                    e.Graphics.FillRectangle(brush, 2, 2, btn.Width - 4, btn.Height - 4);
+                    e.Graphics.FillEllipse(brush, circleRect);
                 }
 
-                // Draw border - thicker for selected color
-                using (var pen = new Pen(Color.DarkGray, _currentColor == color ? 2 : 1))
+                // Draw selection indicator if this is the current color
+                if (_currentColor == color)
                 {
-                    e.Graphics.DrawRectangle(pen, 2, 2, btn.Width - 4, btn.Height - 4);
+                    using var pen = new Pen(Color.White, 2);
+                    e.Graphics.DrawEllipse(pen, circleRect);
+
+                    // Draw outer ring
+                    using var outerPen = new Pen(Color.FromArgb(100, 100, 100), 1);
+                    e.Graphics.DrawEllipse(outerPen, circleRect);
                 }
             }
         };
@@ -601,16 +609,156 @@ public partial class MainForm : Form
         }
     }
 
-    private void ChangeColor(object? sender, EventArgs e)
+    private async void ChangeColor(object? sender, EventArgs e)
     {
-        using var dialog = new ColorDialog
-        {
-            Color = _currentColor
-        };
+        using var dialog = new ColorPickerForm(_currentColor);
+        dialog.StartPosition = FormStartPosition.CenterParent;
 
         if (dialog.ShowDialog() == DialogResult.OK)
         {
-            _currentColor = dialog.Color;
+            _currentColor = dialog.SelectedColor;
+            UpdateColorButtonStates();
+        }
+    }
+
+    // Add this new form for the modern color picker
+    public class ColorPickerForm : Form
+    {
+        private Color selectedColor;
+        private readonly int wheelSize = 200;
+        private readonly List<Color> recentColors = new List<Color>();
+
+        public Color SelectedColor => selectedColor;
+
+        public ColorPickerForm(Color initialColor)
+        {
+            selectedColor = initialColor;
+            InitializeColorPicker();
+        }
+
+        private void InitializeColorPicker()
+        {
+            this.Text = "Color Picker";
+            this.Size = new Size(300, 400);
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+
+            var colorWheel = new Panel
+            {
+                Size = new Size(wheelSize, wheelSize),
+                Location = new Point(50, 50)
+            };
+
+            colorWheel.Paint += ColorWheel_Paint;
+            colorWheel.MouseDown += ColorWheel_MouseDown;
+            colorWheel.MouseMove += ColorWheel_MouseMove;
+
+            var okButton = new Button
+            {
+                Text = "OK",
+                DialogResult = DialogResult.OK,
+                Location = new Point(120, 320)
+            };
+
+            var cancelButton = new Button
+            {
+                Text = "Cancel",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(200, 320)
+            };
+
+            this.Controls.AddRange(new Control[] { colorWheel, okButton, cancelButton });
+        }
+
+        private void ColorWheel_Paint(object? sender, PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            // Draw color wheel
+            for (int angle = 0; angle < 360; angle++)
+            {
+                for (int saturation = 0; saturation < 100; saturation++)
+                {
+                    var color = ColorFromHSV(angle, saturation / 100.0, 1.0);
+                    using var brush = new SolidBrush(color);
+
+                    double rad = angle * Math.PI / 180;
+                    int x = (int)(wheelSize / 2 + saturation * Math.Cos(rad));
+                    int y = (int)(wheelSize / 2 + saturation * Math.Sin(rad));
+
+                    e.Graphics.FillEllipse(brush, x - 2, y - 2, 4, 4);
+                }
+            }
+
+            // Draw selected color indicator
+            using (var pen = new Pen(Color.White, 2))
+            {
+                e.Graphics.DrawEllipse(pen, wheelSize / 2 - 15, wheelSize / 2 - 15, 30, 30);
+            }
+            using (var brush = new SolidBrush(selectedColor))
+            {
+                e.Graphics.FillEllipse(brush, wheelSize / 2 - 14, wheelSize / 2 - 14, 28, 28);
+            }
+        }
+
+        // Event handlers using the method
+        private void ColorWheel_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (sender is Control control)
+            {
+                SelectColorFromPoint(e.Location, control);
+            }
+        }
+
+        private void ColorWheel_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && sender is Control control)
+            {
+                SelectColorFromPoint(e.Location, control);
+            }
+        }
+
+        // Method definition
+        private void SelectColorFromPoint(Point location, Control sourceControl)
+        {
+            var center = new Point(wheelSize / 2, wheelSize / 2);
+            var dx = location.X - center.X;
+            var dy = location.Y - center.Y;
+
+            var angle = Math.Atan2(dy, dx) * 180 / Math.PI;
+            if (angle < 0) angle += 360;
+
+            var distance = Math.Sqrt(dx * dx + dy * dy);
+            var saturation = Math.Min(distance / (wheelSize / 2), 1.0);
+
+            selectedColor = ColorFromHSV(angle, saturation, 1.0);
+            sourceControl.Invalidate();
+        }
+
+        private static Color ColorFromHSV(double hue, double saturation, double value)
+        {
+            int hi = Convert.ToInt32(Math.Floor(hue / 60)) % 6;
+            double f = hue / 60 - Math.Floor(hue / 60);
+
+            value = value * 255;
+            int v = Convert.ToInt32(value);
+            int p = Convert.ToInt32(value * (1 - saturation));
+            int q = Convert.ToInt32(value * (1 - f * saturation));
+            int t = Convert.ToInt32(value * (1 - (1 - f) * saturation));
+
+            if (hi == 0)
+                return Color.FromArgb(255, v, t, p);
+            else if (hi == 1)
+                return Color.FromArgb(255, q, v, p);
+            else if (hi == 2)
+                return Color.FromArgb(255, p, v, t);
+            else if (hi == 3)
+                return Color.FromArgb(255, p, q, v);
+            else if (hi == 4)
+                return Color.FromArgb(255, t, p, v);
+            else
+                return Color.FromArgb(255, v, p, q);
         }
     }
 
