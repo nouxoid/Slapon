@@ -675,21 +675,40 @@ public partial class MainForm : Form
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-            // Draw color wheel
-            for (int angle = 0; angle < 360; angle++)
+            // Create bitmap for the wheel if not exists or if size changed
+            if (_wheelBitmap == null || _wheelBitmap.Size != new Size(wheelSize, wheelSize))
             {
-                for (int saturation = 0; saturation < 100; saturation++)
+                _wheelBitmap?.Dispose();
+                _wheelBitmap = new Bitmap(wheelSize, wheelSize);
+                using (var g = Graphics.FromImage(_wheelBitmap))
                 {
-                    var color = ColorFromHSV(angle, saturation / 100.0, 1.0);
-                    using var brush = new SolidBrush(color);
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
 
-                    double rad = angle * Math.PI / 180;
-                    int x = (int)(wheelSize / 2 + saturation * Math.Cos(rad));
-                    int y = (int)(wheelSize / 2 + saturation * Math.Sin(rad));
+                    // Draw the color wheel using a more efficient method
+                    for (int x = 0; x < wheelSize; x++)
+                    {
+                        for (int y = 0; y < wheelSize; y++)
+                        {
+                            // Convert to polar coordinates
+                            double dx = (x - wheelSize / 2.0) / (wheelSize / 2.0);
+                            double dy = (y - wheelSize / 2.0) / (wheelSize / 2.0);
+                            double distance = Math.Sqrt(dx * dx + dy * dy);
 
-                    e.Graphics.FillEllipse(brush, x - 2, y - 2, 4, 4);
+                            if (distance <= 1) // Only draw within the circle
+                            {
+                                double angle = Math.Atan2(dy, dx) * 180 / Math.PI;
+                                if (angle < 0) angle += 360;
+
+                                var color = ColorFromHSV(angle, distance, 1.0);
+                                _wheelBitmap.SetPixel(x, y, color);
+                            }
+                        }
+                    }
                 }
             }
+
+            // Draw the cached wheel
+            e.Graphics.DrawImage(_wheelBitmap, 0, 0);
 
             // Draw selected color indicator
             using (var pen = new Pen(Color.White, 2))
@@ -700,6 +719,19 @@ public partial class MainForm : Form
             {
                 e.Graphics.FillEllipse(brush, wheelSize / 2 - 14, wheelSize / 2 - 14, 28, 28);
             }
+        }
+
+        // Add this field to the ColorPickerForm class
+        private Bitmap? _wheelBitmap;
+
+        // Don't forget to dispose of the bitmap when the form closes
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _wheelBitmap?.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
         // Event handlers using the method
