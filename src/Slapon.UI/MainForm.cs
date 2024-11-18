@@ -896,6 +896,7 @@ public partial class MainForm : Form
         }
     }
 
+    // In PictureBox_MouseUp method, after creating any annotation:
     private void PictureBox_MouseUp(object sender, MouseEventArgs e)
     {
         if (_currentTool == AnnotationTool.Select && _draggedAnnotation != null)
@@ -934,6 +935,9 @@ public partial class MainForm : Form
                         // Add the final annotation
                         _annotationService.AddAnnotation(annotation);
                         _annotationService.SelectAnnotation(annotation);
+
+                        // Auto-copy to clipboard after creating annotation
+                        CopyScreenshotWithAnnotationsToClipboard();
                     }
                 }
             }
