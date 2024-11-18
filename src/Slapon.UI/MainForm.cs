@@ -9,6 +9,7 @@ using System.Drawing.Drawing2D;
 using Slapon.UI.Forms;
 using Slapon.UI.Properties;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
+using System.Windows.Forms;
 
 public partial class MainForm : Form
 {
@@ -52,6 +53,7 @@ public partial class MainForm : Form
     private ToolStripButton textButton;
     // Add this with your other button declarations
     private ToolStripButton selectButton;
+    private ToolStrip toolStrip;
 
     public MainForm()
     {
@@ -87,7 +89,7 @@ public partial class MainForm : Form
     }
     private void SetupUI()
     {
-        // PictureBox setup (keep your existing PictureBox configuration)
+        // PictureBox setup
         pictureBox = new PictureBox
         {
             SizeMode = PictureBoxSizeMode.AutoSize,
@@ -99,7 +101,7 @@ public partial class MainForm : Form
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
             null, pictureBox, new object[] { true });
 
-        // Panel setup (keep your existing Panel configuration)
+        // Panel setup
         var panel = new Panel
         {
             Dock = DockStyle.Fill,
@@ -116,49 +118,64 @@ public partial class MainForm : Form
         panel.Resize += Panel_Resize;
         panel.Controls.Add(pictureBox);
 
-        // In SetupUI method, update the toolStrip initialization:
-        var toolStrip = new ToolStrip
+        // Toolbar setup
+        toolStrip = new ToolStrip
         {
             Renderer = new CustomToolStripRenderer(),
             GripStyle = ToolStripGripStyle.Hidden,
-            BackColor = Color.FromArgb(245, 245, 245), // Light gray background
-            ForeColor = Color.FromArgb(50, 50, 50), // Darker text color
-            Padding = new Padding(2), // Reduced padding
-            Height = 48, // Reduced height
+            BackColor = Color.FromArgb(245, 245, 245),
+            ForeColor = Color.FromArgb(50, 50, 50),
+            Padding = new Padding(2),
+            Height = 48,
             Dock = DockStyle.Top
         };
 
-        // Capture Group
+        // Create buttons
         var screenshotButton = CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture);
-
-        // Annotation Group
         btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
         btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
         lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
         textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
         selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select));
-        // Utility Group
-        var colorButton = CreateModernButton("Color", null, ChangeColor);
         var clearAllButton = CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations());
 
+        // Create color buttons
+        var colorButtons = new List<ToolStripItem>();
+        var commonColors = new[]
+        {
+        Color.FromArgb(255, 51, 51),   // Red
+        Color.FromArgb(51, 255, 51),   // Green
+        Color.FromArgb(51, 51, 255),   // Blue
+        Color.FromArgb(255, 255, 51),  // Yellow
+        Color.FromArgb(255, 51, 255),  // Pink
+    };
+
+        foreach (var color in commonColors)
+        {
+            var colorButton = CreateColorButton(color);
+            colorButton.Tag = "color";
+            colorButtons.Add(colorButton);
+        }
+
+        // Create color picker dropdown
+        var colorPickerButton = CreateModernButton("▼", null, ChangeColor);
+        colorPickerButton.Width = 20;
+
+        // Right-aligned buttons
+        var copyButton = CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
+        var saveButton = CreateModernButton("Save", null, SaveImage);
+        copyButton.Alignment = ToolStripItemAlignment.Right;
+        saveButton.Alignment = ToolStripItemAlignment.Right;
+
+        // Expanding separator for right alignment
         var expandingSeparator = new ToolStripSeparator
         {
             AutoSize = true,
             Margin = new Padding(0),
-            Alignment = ToolStripItemAlignment.Right // This is key for right alignment
+            Alignment = ToolStripItemAlignment.Right
         };
 
-
-
-        // Action Group (right-aligned)
-        var copyButton = CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
-        var saveButton = CreateModernButton("Save", null, SaveImage);
-
-        // Configure right-aligned buttons
-        copyButton.Alignment = ToolStripItemAlignment.Right;
-        saveButton.Alignment = ToolStripItemAlignment.Right;
-
-        // Add all items to toolbar with separators
+        // Add all items to toolbar
         toolStrip.Items.AddRange(new ToolStripItem[]
         {
             new ToolStripSeparator(),
@@ -170,14 +187,21 @@ public partial class MainForm : Form
             textButton,
             selectButton,
             new ToolStripSeparator(),
-            colorButton,
-            clearAllButton,
-            expandingSeparator,
-            copyButton,
-            saveButton
         });
 
+        // Add color buttons
+        toolStrip.Items.AddRange(colorButtons.ToArray());
+        toolStrip.Items.Add(colorPickerButton);
 
+        // Add remaining items
+        toolStrip.Items.AddRange(new ToolStripItem[]
+        {
+        new ToolStripSeparator(),
+        clearAllButton,
+        expandingSeparator,
+        copyButton,
+        saveButton
+        });
 
         Controls.Add(panel);
         Controls.Add(toolStrip);
@@ -187,6 +211,78 @@ public partial class MainForm : Form
         pictureBox.MouseDown += PictureBox_MouseDown;
         pictureBox.MouseMove += PictureBox_MouseMove;
         pictureBox.MouseUp += PictureBox_MouseUp;
+    }
+
+    private class ColorPalette
+    {
+        public static readonly Color[] CommonColors = new[]
+        {
+        Color.FromArgb(255, 51, 51),   // Red
+        Color.FromArgb(51, 255, 51),   // Green
+        Color.FromArgb(51, 51, 255),   // Blue
+        Color.FromArgb(255, 255, 51),  // Yellow
+        Color.FromArgb(255, 51, 255),  // Pink
+    };
+    }
+
+    private ToolStripButton CreateColorButton(Color color)
+    {
+        var button = new ToolStripButton
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.None,
+            AutoSize = false,
+            Size = new Size(24, 24),
+            Margin = new Padding(2),
+            BackColor = Color.Transparent,
+            Tag = "color"
+        };
+
+        button.Paint += (s, e) =>
+        {
+            if (s is ToolStripButton btn)
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+                var circleRect = new Rectangle(4, 4, btn.Width - 8, btn.Height - 8);
+
+                // Draw the color circle
+                using (var brush = new SolidBrush(color))
+                {
+                    e.Graphics.FillEllipse(brush, circleRect);
+                }
+
+                // Draw selection indicator if this is the current color
+                if (_currentColor == color)
+                {
+                    using var pen = new Pen(Color.White, 2);
+                    e.Graphics.DrawEllipse(pen, circleRect);
+
+                    // Draw outer ring
+                    using var outerPen = new Pen(Color.FromArgb(100, 100, 100), 1);
+                    e.Graphics.DrawEllipse(outerPen, circleRect);
+                }
+            }
+        };
+
+        button.Click += (s, e) =>
+        {
+            _currentColor = color;
+            UpdateColorButtonStates();
+        };
+
+        return button;
+    }
+
+    private void UpdateColorButtonStates()
+    {
+        // Refresh all color buttons to update their appearance
+        foreach (ToolStripItem item in toolStrip.Items)
+        {
+            if (item is ToolStripButton btn && btn.Tag?.ToString() == "color")
+            {
+                btn.Invalidate(); // This will trigger the Paint event
+            }
+        }
     }
 
     // Update CreateModernButton method
@@ -513,16 +609,188 @@ public partial class MainForm : Form
         }
     }
 
-    private void ChangeColor(object? sender, EventArgs e)
+    private async void ChangeColor(object? sender, EventArgs e)
     {
-        using var dialog = new ColorDialog
-        {
-            Color = _currentColor
-        };
+        using var dialog = new ColorPickerForm(_currentColor);
+        dialog.StartPosition = FormStartPosition.CenterParent;
 
         if (dialog.ShowDialog() == DialogResult.OK)
         {
-            _currentColor = dialog.Color;
+            _currentColor = dialog.SelectedColor;
+            UpdateColorButtonStates();
+        }
+    }
+
+    // Add this new form for the modern color picker
+    public class ColorPickerForm : Form
+    {
+        private Color selectedColor;
+        private readonly int wheelSize = 200;
+        private readonly List<Color> recentColors = new List<Color>();
+
+        public Color SelectedColor => selectedColor;
+
+        public ColorPickerForm(Color initialColor)
+        {
+            selectedColor = initialColor;
+            InitializeColorPicker();
+        }
+
+        private void InitializeColorPicker()
+        {
+            this.Text = "Color Picker";
+            this.Size = new Size(300, 400);
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+
+            var colorWheel = new Panel
+            {
+                Size = new Size(wheelSize, wheelSize),
+                Location = new Point(50, 50)
+            };
+
+            colorWheel.Paint += ColorWheel_Paint;
+            colorWheel.MouseDown += ColorWheel_MouseDown;
+            colorWheel.MouseMove += ColorWheel_MouseMove;
+
+            var okButton = new Button
+            {
+                Text = "OK",
+                DialogResult = DialogResult.OK,
+                Location = new Point(120, 320)
+            };
+
+            var cancelButton = new Button
+            {
+                Text = "Cancel",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(200, 320)
+            };
+
+            this.Controls.AddRange(new Control[] { colorWheel, okButton, cancelButton });
+        }
+
+        private void ColorWheel_Paint(object? sender, PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            // Create bitmap for the wheel if not exists or if size changed
+            if (_wheelBitmap == null || _wheelBitmap.Size != new Size(wheelSize, wheelSize))
+            {
+                _wheelBitmap?.Dispose();
+                _wheelBitmap = new Bitmap(wheelSize, wheelSize);
+                using (var g = Graphics.FromImage(_wheelBitmap))
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+
+                    // Draw the color wheel using a more efficient method
+                    for (int x = 0; x < wheelSize; x++)
+                    {
+                        for (int y = 0; y < wheelSize; y++)
+                        {
+                            // Convert to polar coordinates
+                            double dx = (x - wheelSize / 2.0) / (wheelSize / 2.0);
+                            double dy = (y - wheelSize / 2.0) / (wheelSize / 2.0);
+                            double distance = Math.Sqrt(dx * dx + dy * dy);
+
+                            if (distance <= 1) // Only draw within the circle
+                            {
+                                double angle = Math.Atan2(dy, dx) * 180 / Math.PI;
+                                if (angle < 0) angle += 360;
+
+                                var color = ColorFromHSV(angle, distance, 1.0);
+                                _wheelBitmap.SetPixel(x, y, color);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Draw the cached wheel
+            e.Graphics.DrawImage(_wheelBitmap, 0, 0);
+
+            // Draw selected color indicator
+            using (var pen = new Pen(Color.White, 2))
+            {
+                e.Graphics.DrawEllipse(pen, wheelSize / 2 - 15, wheelSize / 2 - 15, 30, 30);
+            }
+            using (var brush = new SolidBrush(selectedColor))
+            {
+                e.Graphics.FillEllipse(brush, wheelSize / 2 - 14, wheelSize / 2 - 14, 28, 28);
+            }
+        }
+
+        // Add this field to the ColorPickerForm class
+        private Bitmap? _wheelBitmap;
+
+        // Don't forget to dispose of the bitmap when the form closes
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _wheelBitmap?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        // Event handlers using the method
+        private void ColorWheel_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (sender is Control control)
+            {
+                SelectColorFromPoint(e.Location, control);
+            }
+        }
+
+        private void ColorWheel_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && sender is Control control)
+            {
+                SelectColorFromPoint(e.Location, control);
+            }
+        }
+
+        // Method definition
+        private void SelectColorFromPoint(Point location, Control sourceControl)
+        {
+            var center = new Point(wheelSize / 2, wheelSize / 2);
+            var dx = location.X - center.X;
+            var dy = location.Y - center.Y;
+
+            var angle = Math.Atan2(dy, dx) * 180 / Math.PI;
+            if (angle < 0) angle += 360;
+
+            var distance = Math.Sqrt(dx * dx + dy * dy);
+            var saturation = Math.Min(distance / (wheelSize / 2), 1.0);
+
+            selectedColor = ColorFromHSV(angle, saturation, 1.0);
+            sourceControl.Invalidate();
+        }
+
+        private static Color ColorFromHSV(double hue, double saturation, double value)
+        {
+            int hi = Convert.ToInt32(Math.Floor(hue / 60)) % 6;
+            double f = hue / 60 - Math.Floor(hue / 60);
+
+            value = value * 255;
+            int v = Convert.ToInt32(value);
+            int p = Convert.ToInt32(value * (1 - saturation));
+            int q = Convert.ToInt32(value * (1 - f * saturation));
+            int t = Convert.ToInt32(value * (1 - (1 - f) * saturation));
+
+            if (hi == 0)
+                return Color.FromArgb(255, v, t, p);
+            else if (hi == 1)
+                return Color.FromArgb(255, q, v, p);
+            else if (hi == 2)
+                return Color.FromArgb(255, p, v, t);
+            else if (hi == 3)
+                return Color.FromArgb(255, p, q, v);
+            else if (hi == 4)
+                return Color.FromArgb(255, t, p, v);
+            else
+                return Color.FromArgb(255, v, p, q);
         }
     }
 
