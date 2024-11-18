@@ -9,6 +9,7 @@ using System.Drawing.Drawing2D;
 using Slapon.UI.Forms;
 using Slapon.UI.Properties;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
+using System.Windows.Forms;
 
 public partial class MainForm : Form
 {
@@ -52,6 +53,7 @@ public partial class MainForm : Form
     private ToolStripButton textButton;
     // Add this with your other button declarations
     private ToolStripButton selectButton;
+    private ToolStrip toolStrip;
 
     public MainForm()
     {
@@ -87,7 +89,7 @@ public partial class MainForm : Form
     }
     private void SetupUI()
     {
-        // PictureBox setup (keep your existing PictureBox configuration)
+        // PictureBox setup
         pictureBox = new PictureBox
         {
             SizeMode = PictureBoxSizeMode.AutoSize,
@@ -99,7 +101,7 @@ public partial class MainForm : Form
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
             null, pictureBox, new object[] { true });
 
-        // Panel setup (keep your existing Panel configuration)
+        // Panel setup
         var panel = new Panel
         {
             Dock = DockStyle.Fill,
@@ -116,49 +118,64 @@ public partial class MainForm : Form
         panel.Resize += Panel_Resize;
         panel.Controls.Add(pictureBox);
 
-        // In SetupUI method, update the toolStrip initialization:
-        var toolStrip = new ToolStrip
+        // Toolbar setup
+        toolStrip = new ToolStrip
         {
             Renderer = new CustomToolStripRenderer(),
             GripStyle = ToolStripGripStyle.Hidden,
-            BackColor = Color.FromArgb(245, 245, 245), // Light gray background
-            ForeColor = Color.FromArgb(50, 50, 50), // Darker text color
-            Padding = new Padding(2), // Reduced padding
-            Height = 48, // Reduced height
+            BackColor = Color.FromArgb(245, 245, 245),
+            ForeColor = Color.FromArgb(50, 50, 50),
+            Padding = new Padding(2),
+            Height = 48,
             Dock = DockStyle.Top
         };
 
-        // Capture Group
+        // Create buttons
         var screenshotButton = CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture);
-
-        // Annotation Group
         btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
         btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
         lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
         textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
         selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select));
-        // Utility Group
-        var colorButton = CreateModernButton("Color", null, ChangeColor);
         var clearAllButton = CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations());
 
+        // Create color buttons
+        var colorButtons = new List<ToolStripItem>();
+        var commonColors = new[]
+        {
+        Color.FromArgb(255, 51, 51),   // Red
+        Color.FromArgb(51, 255, 51),   // Green
+        Color.FromArgb(51, 51, 255),   // Blue
+        Color.FromArgb(255, 255, 51),  // Yellow
+        Color.FromArgb(255, 51, 255),  // Pink
+    };
+
+        foreach (var color in commonColors)
+        {
+            var colorButton = CreateColorButton(color);
+            colorButton.Tag = "color";
+            colorButtons.Add(colorButton);
+        }
+
+        // Create color picker dropdown
+        var colorPickerButton = CreateModernButton("▼", null, ChangeColor);
+        colorPickerButton.Width = 20;
+
+        // Right-aligned buttons
+        var copyButton = CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
+        var saveButton = CreateModernButton("Save", null, SaveImage);
+        copyButton.Alignment = ToolStripItemAlignment.Right;
+        saveButton.Alignment = ToolStripItemAlignment.Right;
+
+        // Expanding separator for right alignment
         var expandingSeparator = new ToolStripSeparator
         {
             AutoSize = true,
             Margin = new Padding(0),
-            Alignment = ToolStripItemAlignment.Right // This is key for right alignment
+            Alignment = ToolStripItemAlignment.Right
         };
 
-
-
-        // Action Group (right-aligned)
-        var copyButton = CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
-        var saveButton = CreateModernButton("Save", null, SaveImage);
-
-        // Configure right-aligned buttons
-        copyButton.Alignment = ToolStripItemAlignment.Right;
-        saveButton.Alignment = ToolStripItemAlignment.Right;
-
-        // Add all items to toolbar with separators
+        // Add all items to toolbar
         toolStrip.Items.AddRange(new ToolStripItem[]
         {
             new ToolStripSeparator(),
@@ -170,14 +187,21 @@ public partial class MainForm : Form
             textButton,
             selectButton,
             new ToolStripSeparator(),
-            colorButton,
-            clearAllButton,
-            expandingSeparator,
-            copyButton,
-            saveButton
         });
 
+        // Add color buttons
+        toolStrip.Items.AddRange(colorButtons.ToArray());
+        toolStrip.Items.Add(colorPickerButton);
 
+        // Add remaining items
+        toolStrip.Items.AddRange(new ToolStripItem[]
+        {
+        new ToolStripSeparator(),
+        clearAllButton,
+        expandingSeparator,
+        copyButton,
+        saveButton
+        });
 
         Controls.Add(panel);
         Controls.Add(toolStrip);
@@ -187,6 +211,70 @@ public partial class MainForm : Form
         pictureBox.MouseDown += PictureBox_MouseDown;
         pictureBox.MouseMove += PictureBox_MouseMove;
         pictureBox.MouseUp += PictureBox_MouseUp;
+    }
+
+    private class ColorPalette
+    {
+        public static readonly Color[] CommonColors = new[]
+        {
+        Color.FromArgb(255, 51, 51),   // Red
+        Color.FromArgb(51, 255, 51),   // Green
+        Color.FromArgb(51, 51, 255),   // Blue
+        Color.FromArgb(255, 255, 51),  // Yellow
+        Color.FromArgb(255, 51, 255),  // Pink
+    };
+    }
+
+    private ToolStripButton CreateColorButton(Color color)
+    {
+        var button = new ToolStripButton
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.None,
+            AutoSize = false,
+            Size = new Size(24, 24),
+            Margin = new Padding(2),
+            BackColor = color,
+            Tag = "color"
+        };
+
+        // Add a border to make it look better
+        button.Paint += (s, e) =>
+        {
+            if (s is ToolStripButton btn)
+            {
+                // Draw the color fill
+                using (var brush = new SolidBrush(btn.BackColor))
+                {
+                    e.Graphics.FillRectangle(brush, 2, 2, btn.Width - 4, btn.Height - 4);
+                }
+
+                // Draw border - thicker for selected color
+                using (var pen = new Pen(Color.DarkGray, _currentColor == color ? 2 : 1))
+                {
+                    e.Graphics.DrawRectangle(pen, 2, 2, btn.Width - 4, btn.Height - 4);
+                }
+            }
+        };
+
+        button.Click += (s, e) =>
+        {
+            _currentColor = color;
+            UpdateColorButtonStates();
+        };
+
+        return button;
+    }
+
+    private void UpdateColorButtonStates()
+    {
+        // Refresh all color buttons to update their appearance
+        foreach (ToolStripItem item in toolStrip.Items)
+        {
+            if (item is ToolStripButton btn && btn.Tag?.ToString() == "color")
+            {
+                btn.Invalidate(); // This will trigger the Paint event
+            }
+        }
     }
 
     // Update CreateModernButton method
