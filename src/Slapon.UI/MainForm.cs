@@ -65,7 +65,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
-        this.BackColor = Color.White;
+        this.BackColor = Color.LightGray;
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
         _screenCaptureService = new ScreenCaptureService();
@@ -641,11 +641,11 @@ public partial class MainForm : Form
         }
 
         int padding = 20;
-        int pictureBoxWidth = Math.Min(pictureBox.Image.Width, this.ClientSize.Width - padding * 2);
-        int pictureBoxHeight = Math.Min(pictureBox.Image.Height, this.ClientSize.Height - padding * 2);
+        int pictureBoxWidth = Math.Min(_currentImage.Width, this.ClientSize.Width - padding * 2);
+        int pictureBoxHeight = Math.Min(_currentImage.Height, this.ClientSize.Height - padding * 2);
 
         // Maintain aspect ratio
-        float aspectRatio = (float)pictureBox.Image.Width / pictureBox.Image.Height;
+        float aspectRatio = (float)_currentImage.Width / _currentImage.Height;
         if (pictureBoxWidth / aspectRatio <= pictureBoxHeight)
         {
             pictureBoxHeight = (int)(pictureBoxWidth / aspectRatio);
