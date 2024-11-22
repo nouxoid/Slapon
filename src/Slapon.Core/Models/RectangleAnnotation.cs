@@ -4,10 +4,12 @@ using Slapon.Core.Models;
 public class RectangleAnnotation : BaseAnnotation
 {
     public float BorderThickness { get; set; } = 2f;
+    private readonly RectangleF _originalBounds;
 
     public RectangleAnnotation(RectangleF bounds, Color color, float opacity)
         : base(bounds, color, opacity)
     {
+        _originalBounds = bounds;
     }
 
     public override void Draw(Graphics g)
@@ -55,10 +57,10 @@ public class RectangleAnnotation : BaseAnnotation
     public override void Resize(float scaleX, float scaleY)
     {
         Bounds = new RectangleF(
-            Bounds.X * scaleX,
-            Bounds.Y * scaleY,
-            Bounds.Width * scaleX,
-            Bounds.Height * scaleY
+            _originalBounds.X * scaleX,
+            _originalBounds.Y * scaleY,
+            _originalBounds.Width * scaleX,
+            _originalBounds.Height * scaleY
         );
         BorderThickness *= Math.Min(scaleX, scaleY);
     }
