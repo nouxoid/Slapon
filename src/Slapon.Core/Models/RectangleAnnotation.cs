@@ -13,7 +13,13 @@ public class RectangleAnnotation : BaseAnnotation
     public override void Draw(Graphics g)
     {
         using var pen = new Pen(GetTransparentColor(), BorderThickness);
-        if (Bounds.Width > 0 && Bounds.Height > 0)
+
+        // Check for valid bounds
+        if (Bounds.Width > 0 && Bounds.Height > 0 &&
+            !float.IsNaN(Bounds.X) && !float.IsNaN(Bounds.Y) &&
+            !float.IsInfinity(Bounds.X) && !float.IsInfinity(Bounds.Y) &&
+            !float.IsNaN(Bounds.Width) && !float.IsNaN(Bounds.Height) &&
+            !float.IsInfinity(Bounds.Width) && !float.IsInfinity(Bounds.Height))
         {
             g.DrawRectangle(pen, Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height);
         }

@@ -438,7 +438,6 @@ public partial class MainForm : Form
     private void Panel_Resize(object? sender, EventArgs e)
     {
         CenterPictureBox();
-        ResizeAnnotations();
         RedrawImage();
     }
 
