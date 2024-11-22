@@ -41,7 +41,7 @@ public class TextAnnotation : BaseAnnotation
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             using var brush = new SolidBrush(GetTransparentColor());
-            float scaledFontSize = Math.Max(1, _originalFont.Size * (_textSize.Height / (float)_originalTextSize.Height));
+            float scaledFontSize = Math.Max(1, _originalFont.Size * ((_textSize.Height / (float)_originalTextSize.Height) + (_textSize.Width / (float)_originalTextSize.Width)) / 2);
             using var scaledFont = new Font(_originalFont.FontFamily, scaledFontSize, _originalFont.Style);
             TextRenderer.DrawText(g, _text, scaledFont, Point.Round(Bounds.Location), Color);
         }
