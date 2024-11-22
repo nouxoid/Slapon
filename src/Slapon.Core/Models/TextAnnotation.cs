@@ -82,6 +82,6 @@ public class TextAnnotation : BaseAnnotation
     {
         var location = new PointF(Bounds.X * scaleX, Bounds.Y * scaleY);
         _textSize = new Size((int)(_originalTextSize.Width * scaleX), (int)(_originalTextSize.Height * scaleY));
-        UpdateBounds(location);
+        UpdateBounds(new PointF(location.X / scaleX, location.Y / scaleY));
     }
 }
