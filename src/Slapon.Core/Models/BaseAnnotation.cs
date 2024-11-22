@@ -57,9 +57,14 @@ public abstract class BaseAnnotation : IAnnotation
         return Color.FromArgb((int)(Opacity * 255), Color);
     }
 
-    public virtual void Resize(float widthScale, float heightScale)
+    public virtual void Resize(float scaleX, float scaleY)
     {
-        Bounds = new RectangleF(Bounds.X * widthScale, Bounds.Y * heightScale, Bounds.Width * widthScale, Bounds.Height * heightScale);
+        Bounds = new RectangleF(
+            Bounds.X * scaleX,
+            Bounds.Y * scaleY,
+            Bounds.Width * scaleX,
+            Bounds.Height * scaleY
+        );
     }
 
 

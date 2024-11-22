@@ -623,6 +623,19 @@ public partial class MainForm : Form
         var width = Math.Min(maxWidth, capturedImage.Width + 50);
         var height = Math.Min(maxHeight, capturedImage.Height + 50);
 
+        // Calculate scale factors based on the new dimensions
+        float scaleX = (float)capturedImage.Width / _currentImage.Width;
+        float scaleY = (float)capturedImage.Height / _currentImage.Height;
+
+        // Resize annotations based on the new image size
+        foreach (var annotation in _annotationService.Annotations)
+        {
+            annotation.Resize(scaleX, scaleY);
+        }
+
+        // Update the image
+        _currentImage = capturedImage;
+
         this.ClientSize = new Size(width, height);
         this.CenterToScreen();
 
@@ -632,7 +645,6 @@ public partial class MainForm : Form
         // Allow layout to update
         Application.DoEvents();
     }
-
     private void ResizePictureBox()
     {
         if (pictureBox == null || _currentImage == null)

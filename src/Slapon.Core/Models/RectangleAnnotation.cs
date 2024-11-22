@@ -52,8 +52,9 @@ public class RectangleAnnotation : BaseAnnotation
         };
     }
 
-    public override void Resize(float widthScale, float heightScale)
+    public override void Resize(float scaleX, float scaleY)
     {
-        Bounds = new RectangleF(Bounds.X * widthScale, Bounds.Y * heightScale, Bounds.Width * widthScale, Bounds.Height * heightScale);
+        base.Resize(scaleX, scaleY);
+        BorderThickness *= Math.Min(scaleX, scaleY);
     }
 }
