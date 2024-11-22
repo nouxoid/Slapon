@@ -751,7 +751,7 @@ public partial class MainForm : Form
             if (!string.IsNullOrWhiteSpace(_textBox?.Text))
             {
                 // Show confirmation dialog only if there's text
-                if (MessageBox.Show("Discard text annotation?", "Confirm Cancel",
+                if (MessageBox.Show("Discard the text for now?", "Confirm Cancel",
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 {
                     CancelTextAnnotation();
