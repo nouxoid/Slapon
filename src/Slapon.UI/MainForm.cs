@@ -618,8 +618,8 @@ public partial class MainForm : Form
         // Set window size to be 80% of screen size or image size, whichever is smaller
         var screenWidth = Screen.PrimaryScreen.WorkingArea.Width;
         var screenHeight = Screen.PrimaryScreen.WorkingArea.Height;
-        var maxWidth = (int)(screenWidth * 0.8);
-        var maxHeight = (int)(screenHeight * 0.8);
+        var maxWidth = (int)(screenWidth * 0.9);
+        var maxHeight = (int)(screenHeight * 0.9);
 
         var width = Math.Min(maxWidth, capturedImage.Width + 50);
         var height = Math.Min(maxHeight, capturedImage.Height + 50);
