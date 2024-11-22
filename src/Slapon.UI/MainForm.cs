@@ -66,6 +66,7 @@ public partial class MainForm : Form
     {
         InitializeComponent();
         this.BackColor = Color.LightGray;
+        this.StartPosition = FormStartPosition.CenterScreen;  // Center the window on the screen
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
         _screenCaptureService = new ScreenCaptureService();
@@ -637,7 +638,7 @@ public partial class MainForm : Form
         _currentImage = capturedImage;
 
         this.ClientSize = new Size(width, height);
-        this.CenterToScreen();
+        this.StartPosition = FormStartPosition.CenterScreen;
 
         // Resize the PictureBox to fit the window
         ResizePictureBox();
