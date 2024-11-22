@@ -34,6 +34,11 @@ public partial class MainForm : Form
     private Point _lastMousePosition;
     private IAnnotation? _draggedAnnotation;
 
+    private float originalHeight;
+    private float originalWidth;
+    
+
+
 
     private readonly IAnnotationService _annotationService;
     private readonly IAnnotationFactory _annotationFactory;
@@ -425,13 +430,60 @@ public partial class MainForm : Form
         textButton.ToolTipText = _currentTool == AnnotationTool.Text ? "Text Tool (Selected)" : "Text Tool";
     }
 
-    
 
-   
+
+
 
     private void Panel_Resize(object? sender, EventArgs e)
     {
-        CenterPictureBox();
+        ResizeCanvas();
+        ResizeAnnotations();
+    }
+
+    private void ResizeCanvas()
+    {
+        float aspectRatio = (float)originalWidth / originalHeight;
+        int newWidth = panel.ClientSize.Width;
+        int newHeight = (int)(newWidth / aspectRatio);
+
+        if (newHeight > panel.ClientSize.Height)
+        {
+            newHeight = panel.ClientSize.Height;
+            newWidth = (int)(newHeight * aspectRatio);
+        }
+
+        pictureBox.Width = newWidth;
+        pictureBox.Height = newHeight;
+
+        RedrawImage();
+    }
+
+    private void RedrawImage()
+    {
+        if (_currentImage == null)
+            return;
+
+        Bitmap resizedImage = new Bitmap(pictureBox.Width, pictureBox.Height);
+        using (Graphics g = Graphics.FromImage(resizedImage))
+        {
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.DrawImage(_currentImage, new Rectangle(0, 0, resizedImage.Width, resizedImage.Height));
+        }
+
+        pictureBox.Image = resizedImage;
+    }
+
+    private void ResizeAnnotations()
+    {
+        float widthScale = (float)pictureBox.Width / originalWidth;
+        float heightScale = (float)pictureBox.Height / originalHeight;
+
+        foreach (var annotation in _annotationService.Annotations)
+        {
+            annotation.Resize(widthScale, heightScale);
+        }
+
+        pictureBox.Invalidate();
     }
 
     private void CopyScreenshotToClipboard()

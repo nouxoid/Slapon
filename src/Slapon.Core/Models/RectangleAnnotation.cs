@@ -42,4 +42,9 @@ public class RectangleAnnotation : BaseAnnotation
             IsSelected = IsSelected
         };
     }
+
+    public override void Resize(float widthScale, float heightScale)
+    {
+        Bounds = new RectangleF(Bounds.X * widthScale, Bounds.Y * heightScale, Bounds.Width * widthScale, Bounds.Height * heightScale);
+    }
 }
