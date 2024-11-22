@@ -9,15 +9,19 @@ public class TextAnnotation : BaseAnnotation
     private readonly string _text;
     private readonly Font _font;
     private Size _textSize;
+    private PointF _originalLocation;
+    private Size _originalSize;
 
-    public TextAnnotation(Point location, Color color, string text)
-        : base(GetInitialBounds(location, text), color, 1.0f)
+    public TextAnnotation(PointF location, Color color, string text)
+    : base(new RectangleF(location, TextRenderer.MeasureText(text, new Font("Arial", 12))), color, 1.0f)
     {
-        _text = text;
-        _font = new Font("Arial", 12, FontStyle.Regular);
-        _textSize = TextRenderer.MeasureText(text, _font);
-        UpdateBounds(new PointF(location.X, location.Y));
+        _font = new Font("Arial", 12);
+        _originalLocation = location;
+        _originalSize = TextRenderer.MeasureText(text, _font);
+        _textSize = _originalSize;
+        UpdateBounds(location);
     }
+
 
     private static RectangleF GetInitialBounds(Point location, string text)
     {
@@ -76,8 +80,8 @@ public class TextAnnotation : BaseAnnotation
 
     public override void Resize(float scaleX, float scaleY)
     {
-        var location = new PointF(Bounds.X * scaleX, Bounds.Y * scaleY);
-        _textSize = new Size((int)(_textSize.Width * scaleX), (int)(_textSize.Height * scaleY));
+        var location = new PointF(_originalLocation.X * scaleX, _originalLocation.Y * scaleY);
+        _textSize = new Size((int)(_originalSize.Width * scaleX), (int)(_originalSize.Height * scaleY));
         UpdateBounds(location);
         Bounds = new RectangleF(location, _textSize);
     }
