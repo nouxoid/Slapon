@@ -59,7 +59,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
-        this.BackColor = Color.DarkGray;
+        this.BackColor = Color.FromArgb(64, 64, 64);
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
         _screenCaptureService = new ScreenCaptureService();
@@ -129,11 +129,14 @@ public partial class MainForm : Form
         var colorPickerButton = new ToolStripButton
         {
             Image = Resources.colorIcon,
-            DisplayStyle = ToolStripItemDisplayStyle.Image,
-            TextImageRelation = TextImageRelation.TextBeforeImage
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            Text = string.Empty, // Ensure text is empty
+            TextImageRelation = TextImageRelation.ImageBeforeText // Image before text
         };
 
         colorPickerButton.Click += ChangeColor;
+
+        
 
         // Toolbar setup
         toolStrip = new ToolStrip
