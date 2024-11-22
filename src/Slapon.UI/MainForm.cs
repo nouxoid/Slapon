@@ -438,6 +438,7 @@ public partial class MainForm : Form
     private void Panel_Resize(object? sender, EventArgs e)
     {
         CenterPictureBox();
+        ResizePictureBox();
         RedrawImage();
     }
 
@@ -625,13 +626,19 @@ public partial class MainForm : Form
         this.ClientSize = new Size(width, height);
         this.CenterToScreen();
 
+        // Resize the PictureBox to fit the window
+        ResizePictureBox();
+
         // Allow layout to update
         Application.DoEvents();
-
-        // Center the picture box after everything is set
-        CenterPictureBox();
     }
 
+    private void ResizePictureBox()
+    {
+        pictureBox.Size = new Size(this.ClientSize.Width - 50, this.ClientSize.Height - 50);
+        pictureBox.SizeMode = PictureBoxSizeMode.Zoom;
+        pictureBox.Image = _currentImage;
+    }
     private void OpenImage(object? sender, EventArgs e)
     {
         using var dialog = new OpenFileDialog
