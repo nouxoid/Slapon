@@ -635,7 +635,23 @@ public partial class MainForm : Form
 
     private void ResizePictureBox()
     {
-        pictureBox.Size = new Size(this.ClientSize.Width - 50, this.ClientSize.Height - 50);
+        int padding = 20;
+        int pictureBoxWidth = Math.Min(pictureBox.Image.Width, this.ClientSize.Width - padding * 2);
+        int pictureBoxHeight = Math.Min(pictureBox.Image.Height, this.ClientSize.Height - padding * 2);
+
+        // Maintain aspect ratio
+        float aspectRatio = (float)pictureBox.Image.Width / pictureBox.Image.Height;
+        if (pictureBoxWidth / aspectRatio <= pictureBoxHeight)
+        {
+            pictureBoxHeight = (int)(pictureBoxWidth / aspectRatio);
+        }
+        else
+        {
+            pictureBoxWidth = (int)(pictureBoxHeight * aspectRatio);
+        }
+
+        pictureBox.Size = new Size(pictureBoxWidth, pictureBoxHeight);
+        pictureBox.Location = new Point((this.ClientSize.Width - pictureBoxWidth) / 2, (this.ClientSize.Height - pictureBoxHeight) / 2);
         pictureBox.SizeMode = PictureBoxSizeMode.Zoom;
         pictureBox.Image = _currentImage;
     }
