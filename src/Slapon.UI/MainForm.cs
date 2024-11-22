@@ -55,6 +55,7 @@ public partial class MainForm : Form
     private ToolStripButton selectButton;
     private ToolStrip toolStrip;
 
+
     public MainForm()
     {
         InitializeComponent();
@@ -125,6 +126,14 @@ public partial class MainForm : Form
         textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
         selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select));
 
+        var colorPickerButton = new ToolStripButton
+        {
+            Image = Resources.colorIcon,
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            TextImageRelation = TextImageRelation.TextBeforeImage
+        };
+
+        colorPickerButton.Click += ChangeColor;
 
         // Toolbar setup
         toolStrip = new ToolStrip
@@ -145,14 +154,15 @@ public partial class MainForm : Form
     };
 
         var centerGroup = new List<ToolStripItem>
-        {
-            btnRectangleTool,
-            btnHighlightTool,
-            lineButton,
-            textButton,
-            selectButton,
-            new ToolStripSeparator()
-        };
+    {
+        btnRectangleTool,
+        btnHighlightTool,
+        lineButton,
+        textButton,
+        selectButton,
+        new ToolStripSeparator(),
+        colorPickerButton
+    };
 
         // Create color buttons
         var commonColors = new[]
@@ -172,9 +182,6 @@ public partial class MainForm : Form
         }
 
         // Add color picker and clear button to center group
-        var colorPickerButton = CreateModernButton("▼", null, ChangeColor);
-        colorPickerButton.Width = 20;
-        centerGroup.Add(colorPickerButton);
         centerGroup.Add(new ToolStripSeparator());
         centerGroup.Add(CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations()));
 
@@ -615,7 +622,7 @@ public partial class MainForm : Form
         }
     }
 
-    private async void ChangeColor(object? sender, EventArgs e)
+    private void ChangeColor(object? sender, EventArgs e)
     {
         using var dialog = new ColorPickerForm(_currentColor);
         dialog.StartPosition = FormStartPosition.CenterParent;

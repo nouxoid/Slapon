@@ -23,5 +23,6 @@
         public static System.Drawing.Image? clearall => LoadImage(Path.Combine(IconPath, "clearall.png"));
         public static System.Drawing.Image? newcapture => LoadImage(Path.Combine(IconPath, "newcapture.png"));
         public static System.Drawing.Image? select => LoadImage(Path.Combine(IconPath, "select.png"));
+        public static System.Drawing.Image? colorIcon => LoadImage(Path.Combine(IconPath, "colorpicker.png"));
     }
 }
