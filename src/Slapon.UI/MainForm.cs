@@ -441,22 +441,25 @@ public partial class MainForm : Form
         ResizeAnnotations();
     }
 
-    private void ResizeCanvas()
+    private void RedrawImage()
     {
-        float aspectRatio = (float)originalWidth / originalHeight;
-        int newWidth = panel.ClientSize.Width;
-        int newHeight = (int)(newWidth / aspectRatio);
+        if (_currentImage == null)
+            return;
 
-        if (newHeight > panel.ClientSize.Height)
+        int width = pictureBox.Width;
+        int height = pictureBox.Height;
+
+        if (width <= 0 || height <= 0)
+            return;
+
+        Bitmap resizedImage = new Bitmap(width, height);
+        using (Graphics g = Graphics.FromImage(resizedImage))
         {
-            newHeight = panel.ClientSize.Height;
-            newWidth = (int)(newHeight * aspectRatio);
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.DrawImage(_currentImage, new Rectangle(0, 0, resizedImage.Width, resizedImage.Height));
         }
 
-        pictureBox.Width = newWidth;
-        pictureBox.Height = newHeight;
-
-        RedrawImage();
+        pictureBox.Image = resizedImage;
     }
 
     private void RedrawImage()
