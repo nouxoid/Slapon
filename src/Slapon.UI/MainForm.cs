@@ -624,13 +624,13 @@ public partial class MainForm : Form
         var height = Math.Min(maxHeight, capturedImage.Height + 50);
 
         // Calculate scale factors based on the new dimensions
-        float scaleX = (float)capturedImage.Width / _currentImage.Width;
-        float scaleY = (float)capturedImage.Height / _currentImage.Height;
+        originalWidth = capturedImage.Width;
+        originalHeight = capturedImage.Height;
 
         // Resize annotations based on the new image size
         foreach (var annotation in _annotationService.Annotations)
         {
-            annotation.Resize(scaleX, scaleY);
+            annotation.Resize(1, 1); // Reset scaling first
         }
 
         // Update the image
@@ -670,6 +670,10 @@ public partial class MainForm : Form
         pictureBox.Size = new Size(pictureBoxWidth, pictureBoxHeight);
         pictureBox.Location = new Point((this.ClientSize.Width - pictureBoxWidth) / 2, (this.ClientSize.Height - pictureBoxHeight) / 2);
         pictureBox.SizeMode = PictureBoxSizeMode.Zoom;
+
+        // Call ResizeAnnotations to update annotations
+        ResizeAnnotations();
+
         pictureBox.Image = _currentImage;
     }
     private void OpenImage(object? sender, EventArgs e)
