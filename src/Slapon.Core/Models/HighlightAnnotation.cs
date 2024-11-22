@@ -5,9 +5,12 @@ namespace Slapon.Core.Models;
 
 public class HighlightAnnotation : BaseAnnotation
 {
+    private readonly RectangleF _originalBounds;
+
     public HighlightAnnotation(RectangleF bounds, Color color, float opacity = 0.4f)
         : base(bounds, color, opacity)
     {
+        _originalBounds = bounds;
     }
 
     public override void Draw(Graphics g)
@@ -39,5 +42,15 @@ public class HighlightAnnotation : BaseAnnotation
         {
             IsSelected = this.IsSelected
         };
+    }
+
+    public override void Resize(float scaleX, float scaleY)
+    {
+        Bounds = new RectangleF(
+            _originalBounds.X * scaleX,
+            _originalBounds.Y * scaleY,
+            _originalBounds.Width * scaleX,
+            _originalBounds.Height * scaleY
+        );
     }
 }

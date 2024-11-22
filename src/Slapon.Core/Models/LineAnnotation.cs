@@ -1,11 +1,11 @@
-﻿using System.Drawing;
+﻿using Slapon.Core.Interfaces;
+using Slapon.Core.Models;
 using System.Drawing.Drawing2D;
-using Slapon.Core.Interfaces;
-
-namespace Slapon.Core.Models;
 
 public class LineAnnotation : BaseAnnotation
 {
+    private readonly Point _originalStart;
+    private readonly Point _originalEnd;
     private Point _start;
     private Point _end;
     public float LineThickness { get; set; } = 2f;
@@ -13,6 +13,8 @@ public class LineAnnotation : BaseAnnotation
     public LineAnnotation(Point start, Point end, Color color)
         : base(GetBounds(start, end), color, 1.0f)
     {
+        _originalStart = start;
+        _originalEnd = end;
         _start = start;
         _end = end;
     }
@@ -68,5 +70,13 @@ public class LineAnnotation : BaseAnnotation
         path.AddLine(_start, _end);
         using var pen = new Pen(Color.Black, LineThickness * 5); // Wider hit area for easier selection
         return path.IsOutlineVisible(point, pen);
+    }
+
+    public override void Resize(float scaleX, float scaleY)
+    {
+        _start = new Point((int)(_originalStart.X * scaleX), (int)(_originalStart.Y * scaleY));
+        _end = new Point((int)(_originalEnd.X * scaleX), (int)(_originalEnd.Y * scaleY));
+        Bounds = GetBounds(_start, _end);
+        LineThickness *= Math.Min(scaleX, scaleY);
     }
 }

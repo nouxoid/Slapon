@@ -34,6 +34,11 @@ public partial class MainForm : Form
     private Point _lastMousePosition;
     private IAnnotation? _draggedAnnotation;
 
+    private float originalHeight;
+    private float originalWidth;
+    
+
+
 
     private readonly IAnnotationService _annotationService;
     private readonly IAnnotationFactory _annotationFactory;
@@ -54,12 +59,14 @@ public partial class MainForm : Form
     // Add this with your other button declarations
     private ToolStripButton selectButton;
     private ToolStrip toolStrip;
+    private Panel panel;
 
 
     public MainForm()
     {
         InitializeComponent();
-        this.BackColor = Color.White;
+        this.BackColor = Color.LightGray;
+        this.StartPosition = FormStartPosition.CenterScreen;  // Center the window on the screen
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
         _screenCaptureService = new ScreenCaptureService();
@@ -103,7 +110,7 @@ public partial class MainForm : Form
             null, pictureBox, new object[] { true });
 
         // Panel setup
-        var panel = new Panel
+        panel = new Panel
         {
             Dock = DockStyle.Fill,
             AutoScroll = true,
@@ -425,13 +432,49 @@ public partial class MainForm : Form
         textButton.ToolTipText = _currentTool == AnnotationTool.Text ? "Text Tool (Selected)" : "Text Tool";
     }
 
-    
 
-   
+
+
 
     private void Panel_Resize(object? sender, EventArgs e)
     {
         CenterPictureBox();
+        ResizePictureBox();
+        RedrawImage();
+    }
+
+    private void RedrawImage()
+    {
+        if (_currentImage == null)
+            return;
+
+        int width = pictureBox.Width;
+        int height = pictureBox.Height;
+
+        if (width <= 0 || height <= 0)
+            return;
+
+        Bitmap resizedImage = new Bitmap(width, height);
+        using (Graphics g = Graphics.FromImage(resizedImage))
+        {
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.DrawImage(_currentImage, new Rectangle(0, 0, resizedImage.Width, resizedImage.Height));
+        }
+
+        pictureBox.Image = resizedImage;
+    }
+
+    private void ResizeAnnotations()
+    {
+        float widthScale = (float)pictureBox.Width / originalWidth;
+        float heightScale = (float)pictureBox.Height / originalHeight;
+
+        foreach (var annotation in _annotationService.Annotations)
+        {
+            annotation.Resize(widthScale, heightScale);
+        }
+
+        pictureBox.Invalidate();
     }
 
     private void CopyScreenshotToClipboard()
@@ -581,16 +624,59 @@ public partial class MainForm : Form
         var width = Math.Min(maxWidth, capturedImage.Width + 50);
         var height = Math.Min(maxHeight, capturedImage.Height + 50);
 
+        // Calculate scale factors based on the new dimensions
+        originalWidth = capturedImage.Width;
+        originalHeight = capturedImage.Height;
+
+        // Resize annotations based on the new image size
+        foreach (var annotation in _annotationService.Annotations)
+        {
+            annotation.Resize(1, 1); // Reset scaling first
+        }
+
+        // Update the image
+        _currentImage = capturedImage;
+
         this.ClientSize = new Size(width, height);
-        this.CenterToScreen();
+        this.StartPosition = FormStartPosition.CenterScreen;
+
+        // Resize the PictureBox to fit the window
+        ResizePictureBox();
 
         // Allow layout to update
         Application.DoEvents();
-
-        // Center the picture box after everything is set
-        CenterPictureBox();
     }
+    private void ResizePictureBox()
+    {
+        if (pictureBox == null || _currentImage == null)
+        {
+            return;
+        }
 
+        int padding = 20;
+        int pictureBoxWidth = Math.Min(_currentImage.Width, this.ClientSize.Width - padding * 2);
+        int pictureBoxHeight = Math.Min(_currentImage.Height, this.ClientSize.Height - padding * 2);
+
+        // Maintain aspect ratio
+        float aspectRatio = (float)_currentImage.Width / _currentImage.Height;
+        if (pictureBoxWidth / aspectRatio <= pictureBoxHeight)
+        {
+            pictureBoxHeight = (int)(pictureBoxWidth / aspectRatio);
+        }
+        else
+        {
+            pictureBoxWidth = (int)(pictureBoxHeight * aspectRatio);
+        }
+
+        pictureBox.Size = new Size(pictureBoxWidth, pictureBoxHeight);
+        pictureBox.Location = new Point((this.ClientSize.Width - pictureBoxWidth) / 2, (this.ClientSize.Height - pictureBoxHeight) / 2);
+        pictureBox.SizeMode = PictureBoxSizeMode.Zoom;
+
+        // Call ResizeAnnotations to update annotations
+        ResizeAnnotations();
+
+        pictureBox.Image = _currentImage;
+    }
     private void OpenImage(object? sender, EventArgs e)
     {
         using var dialog = new OpenFileDialog

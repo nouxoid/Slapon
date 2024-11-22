@@ -4,16 +4,27 @@ using Slapon.Core.Models;
 public class RectangleAnnotation : BaseAnnotation
 {
     public float BorderThickness { get; set; } = 2f;
+    private readonly RectangleF _originalBounds;
 
     public RectangleAnnotation(RectangleF bounds, Color color, float opacity)
         : base(bounds, color, opacity)
     {
+        _originalBounds = bounds;
     }
 
     public override void Draw(Graphics g)
     {
         using var pen = new Pen(GetTransparentColor(), BorderThickness);
-        g.DrawRectangle(pen, Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height);
+
+        // Check for valid bounds
+        if (Bounds.Width > 0 && Bounds.Height > 0 &&
+            !float.IsNaN(Bounds.X) && !float.IsNaN(Bounds.Y) &&
+            !float.IsInfinity(Bounds.X) && !float.IsInfinity(Bounds.Y) &&
+            !float.IsNaN(Bounds.Width) && !float.IsNaN(Bounds.Height) &&
+            !float.IsInfinity(Bounds.Width) && !float.IsInfinity(Bounds.Height))
+        {
+            g.DrawRectangle(pen, Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height);
+        }
     }
 
     public override bool Contains(PointF point)
@@ -41,5 +52,16 @@ public class RectangleAnnotation : BaseAnnotation
             BorderThickness = BorderThickness,
             IsSelected = IsSelected
         };
+    }
+
+    public override void Resize(float scaleX, float scaleY)
+    {
+        Bounds = new RectangleF(
+            _originalBounds.X * scaleX,
+            _originalBounds.Y * scaleY,
+            _originalBounds.Width * scaleX,
+            _originalBounds.Height * scaleY
+        );
+        BorderThickness *= Math.Min(scaleX, scaleY);
     }
 }

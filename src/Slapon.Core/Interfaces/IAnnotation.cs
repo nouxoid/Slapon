@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Drawing.Drawing2D;
 
 namespace Slapon.Core.Interfaces;
 
@@ -17,4 +16,5 @@ public interface IAnnotation
     bool Contains(Point point);
     bool HitTest(Point point);
     void Move(int deltaX, int deltaY);
+    void Resize(float widthScale, float heightScale);
 }
