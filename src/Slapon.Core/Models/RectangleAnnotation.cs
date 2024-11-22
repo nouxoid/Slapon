@@ -13,7 +13,10 @@ public class RectangleAnnotation : BaseAnnotation
     public override void Draw(Graphics g)
     {
         using var pen = new Pen(GetTransparentColor(), BorderThickness);
-        g.DrawRectangle(pen, Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height);
+        if (Bounds.Width > 0 && Bounds.Height > 0)
+        {
+            g.DrawRectangle(pen, Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height);
+        }
     }
 
     public override bool Contains(PointF point)

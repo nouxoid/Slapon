@@ -439,6 +439,7 @@ public partial class MainForm : Form
     {
         CenterPictureBox();
         ResizeAnnotations();
+        RedrawImage();
     }
 
     private void RedrawImage()
