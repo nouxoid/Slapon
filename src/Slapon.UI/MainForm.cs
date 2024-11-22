@@ -59,6 +59,7 @@ public partial class MainForm : Form
     // Add this with your other button declarations
     private ToolStripButton selectButton;
     private ToolStrip toolStrip;
+    private Panel panel;
 
 
     public MainForm()
@@ -108,7 +109,7 @@ public partial class MainForm : Form
             null, pictureBox, new object[] { true });
 
         // Panel setup
-        var panel = new Panel
+        panel = new Panel
         {
             Dock = DockStyle.Fill,
             AutoScroll = true,
