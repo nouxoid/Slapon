@@ -635,6 +635,11 @@ public partial class MainForm : Form
 
     private void ResizePictureBox()
     {
+        if (pictureBox == null || _currentImage == null)
+        {
+            return;
+        }
+
         int padding = 20;
         int pictureBoxWidth = Math.Min(pictureBox.Image.Width, this.ClientSize.Width - padding * 2);
         int pictureBoxHeight = Math.Min(pictureBox.Image.Height, this.ClientSize.Height - padding * 2);
