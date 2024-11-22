@@ -59,7 +59,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
-        this.BackColor = Color.FromArgb(64, 64, 64);
+        this.BackColor = Color.White;
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
         _screenCaptureService = new ScreenCaptureService();
@@ -143,8 +143,8 @@ public partial class MainForm : Form
         {
             Renderer = new CustomToolStripRenderer(),
             GripStyle = ToolStripGripStyle.Hidden,
-            BackColor = Color.FromArgb(245, 245, 245),
-            ForeColor = Color.FromArgb(50, 50, 50),
+            BackColor = Color.White,
+            ForeColor = Color.White,
             Padding = new Padding(8, 2, 8, 2),
             Height = 48,
             Dock = DockStyle.Top
@@ -409,6 +409,13 @@ public partial class MainForm : Form
         btnHighlightTool.BackColor = (_currentTool == AnnotationTool.Highlight) ? Color.LightBlue : SystemColors.Control;
         lineButton.BackColor = (_currentTool == AnnotationTool.Line) ? Color.LightBlue : SystemColors.Control;
         textButton.BackColor = (_currentTool == AnnotationTool.Text) ? Color.LightBlue : SystemColors.Control;
+
+        // Set the background color of the annotation buttons to white
+        btnRectangleTool.BackColor = Color.White;
+        btnHighlightTool.BackColor = Color.White;
+        lineButton.BackColor = Color.White;
+        textButton.BackColor = Color.White;
+        selectButton.BackColor = Color.White;
 
         // Update tooltips
         selectButton.ToolTipText = _currentTool == AnnotationTool.Select ? "Select Tool (Selected)" : "Select Tool";
