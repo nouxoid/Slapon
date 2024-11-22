@@ -54,7 +54,12 @@ public class RectangleAnnotation : BaseAnnotation
 
     public override void Resize(float scaleX, float scaleY)
     {
-        base.Resize(scaleX, scaleY);
+        Bounds = new RectangleF(
+            Bounds.X * scaleX,
+            Bounds.Y * scaleY,
+            Bounds.Width * scaleX,
+            Bounds.Height * scaleY
+        );
         BorderThickness *= Math.Min(scaleX, scaleY);
     }
 }

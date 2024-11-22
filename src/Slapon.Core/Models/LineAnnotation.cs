@@ -69,4 +69,12 @@ public class LineAnnotation : BaseAnnotation
         using var pen = new Pen(Color.Black, LineThickness * 5); // Wider hit area for easier selection
         return path.IsOutlineVisible(point, pen);
     }
+
+    public override void Resize(float scaleX, float scaleY)
+    {
+        _start = new Point((int)(_start.X * scaleX), (int)(_start.Y * scaleY));
+        _end = new Point((int)(_end.X * scaleX), (int)(_end.Y * scaleY));
+        Bounds = GetBounds(_start, _end);
+        LineThickness *= Math.Min(scaleX, scaleY);
+    }
 }

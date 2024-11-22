@@ -8,7 +8,7 @@ public class TextAnnotation : BaseAnnotation
 {
     private readonly string _text;
     private readonly Font _font;
-    private readonly Size _textSize;
+    private Size _textSize;
 
     public TextAnnotation(Point location, Color color, string text)
         : base(GetInitialBounds(location, text), color, 1.0f)
@@ -16,7 +16,7 @@ public class TextAnnotation : BaseAnnotation
         _text = text;
         _font = new Font("Arial", 12, FontStyle.Regular);
         _textSize = TextRenderer.MeasureText(text, _font);
-        UpdateBounds(location);
+        UpdateBounds(new PointF(location.X, location.Y));
     }
 
     private static RectangleF GetInitialBounds(Point location, string text)
@@ -26,7 +26,7 @@ public class TextAnnotation : BaseAnnotation
         return new RectangleF(location, size);
     }
 
-    private void UpdateBounds(Point location)
+    private void UpdateBounds(PointF location)
     {
         Bounds = new RectangleF(location, _textSize);
     }
@@ -72,5 +72,13 @@ public class TextAnnotation : BaseAnnotation
         {
             IsSelected = IsSelected
         };
+    }
+
+    public override void Resize(float scaleX, float scaleY)
+    {
+        var location = new PointF(Bounds.X * scaleX, Bounds.Y * scaleY);
+        _textSize = new Size((int)(_textSize.Width * scaleX), (int)(_textSize.Height * scaleY));
+        UpdateBounds(location);
+        Bounds = new RectangleF(location, _textSize);
     }
 }
