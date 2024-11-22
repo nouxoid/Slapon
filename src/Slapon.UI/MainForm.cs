@@ -462,21 +462,6 @@ public partial class MainForm : Form
         pictureBox.Image = resizedImage;
     }
 
-    private void RedrawImage()
-    {
-        if (_currentImage == null)
-            return;
-
-        Bitmap resizedImage = new Bitmap(pictureBox.Width, pictureBox.Height);
-        using (Graphics g = Graphics.FromImage(resizedImage))
-        {
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            g.DrawImage(_currentImage, new Rectangle(0, 0, resizedImage.Width, resizedImage.Height));
-        }
-
-        pictureBox.Image = resizedImage;
-    }
-
     private void ResizeAnnotations()
     {
         float widthScale = (float)pictureBox.Width / originalWidth;
