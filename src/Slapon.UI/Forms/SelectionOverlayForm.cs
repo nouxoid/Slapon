@@ -115,7 +115,8 @@ namespace Slapon.UI.Forms
                 e.Graphics.DrawImage(_screenshot, clientRect, imageRect, GraphicsUnit.Pixel);
 
                 // Draw border around selection
-                using var pen = new Pen(Color.White, 2);
+                using var pen = new Pen(Color.LightSteelBlue, 2);
+                
                 e.Graphics.DrawRectangle(pen, clientRect);
             }
         }
