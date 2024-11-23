@@ -65,7 +65,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
-        this.BackColor = Color.LightGray;
+        this.BackColor = Color.White;
         this.StartPosition = FormStartPosition.CenterScreen;  // Center the window on the screen
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
