@@ -56,10 +56,13 @@ public partial class MainForm : Form
     private ToolStripButton btnHighlightTool;
     private ToolStripButton lineButton;
     private ToolStripButton textButton;
+    private ToolStripButton rotateButton;
     // Add this with your other button declarations
     private ToolStripButton selectButton;
     private ToolStrip toolStrip;
     private Panel panel;
+
+
 
 
     public MainForm()
@@ -126,6 +129,15 @@ public partial class MainForm : Form
         panel.Resize += Panel_Resize;
         panel.Controls.Add(pictureBox);
 
+        
+        //rotateButton.Click += RotateImage;
+        rotateButton = new ToolStripButton
+        {
+            Image = Resources.select,
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            Text = "Rotate"
+        };
+        rotateButton.Click += RotateImage;
         // First create all the tool buttons
         btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
         btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
@@ -171,7 +183,8 @@ public partial class MainForm : Form
         textButton,
         selectButton,
         new ToolStripSeparator(),
-        colorPickerButton
+        colorPickerButton,
+        rotateButton
     };
 
         // Create color buttons
@@ -691,6 +704,33 @@ public partial class MainForm : Form
             pictureBox.Image = _currentImage;
             _annotationService.ClearAnnotations();
         }
+    }
+
+    private void RotateImage(object? sender, EventArgs e)
+    {
+        if (_currentImage == null) return;
+
+        // Create a new bitmap with swapped width/height for 90-degree rotation
+        var rotated = new Bitmap(_currentImage.Height, _currentImage.Width);
+
+        using (Graphics g = Graphics.FromImage(rotated))
+        {
+            // Rotate 90 degrees clockwise
+            g.TranslateTransform((float)rotated.Width / 2, (float)rotated.Height / 2);
+            g.RotateTransform(90);
+            g.TranslateTransform(-(float)_currentImage.Width / 2, -(float)_currentImage.Height / 2);
+            g.DrawImage(_currentImage, Point.Empty);
+        }
+
+        // Dispose of the old image and update with the new one
+        _currentImage.Dispose();
+        _currentImage = rotated;
+        pictureBox.Image = _currentImage;
+
+        // Ensure the window size is updated for the new image dimensions
+        SetWindowAndImageSize(_currentImage);
+        CenterPictureBox();
+        CopyScreenshotWithAnnotationsToClipboard();
     }
 
     private void SaveImage(object? sender, EventArgs e)
