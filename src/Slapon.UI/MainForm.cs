@@ -133,7 +133,7 @@ public partial class MainForm : Form
         //rotateButton.Click += RotateImage;
         rotateButton = new ToolStripButton
         {
-            Image = Resources.select,
+            Image = Resources.rotate,
             DisplayStyle = ToolStripItemDisplayStyle.Image,
             Text = "Rotate"
         };
@@ -183,8 +183,7 @@ public partial class MainForm : Form
         textButton,
         selectButton,
         new ToolStripSeparator(),
-        colorPickerButton,
-        rotateButton
+          
     };
 
         // Create color buttons
@@ -205,7 +204,9 @@ public partial class MainForm : Form
         }
 
         // Add color picker and clear button to center group
+        centerGroup.Add(colorPickerButton);
         centerGroup.Add(new ToolStripSeparator());
+        centerGroup.Add(rotateButton);
         centerGroup.Add(CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations()));
 
         // Create right-aligned buttons
@@ -504,31 +505,27 @@ public partial class MainForm : Form
 
         var panel = (Panel)pictureBox.Parent;
 
-        // Calculate center position considering both panel size and image size
+        // Calculate exact center positions
         int x = Math.Max(0, (panel.ClientSize.Width - pictureBox.Width) / 2);
         int y = Math.Max(0, (panel.ClientSize.Height - pictureBox.Height) / 2);
 
-        // If the image is smaller than the panel, center it
-        // If the image is larger, start from padding
-        if (pictureBox.Width < panel.ClientSize.Width)
+        // If panel is smaller than image, adjust scroll position
+        if (pictureBox.Width > panel.ClientSize.Width)
         {
-            x = (panel.ClientSize.Width - pictureBox.Width) / 2;
+            panel.HorizontalScroll.Value = (pictureBox.Width - panel.ClientSize.Width) / 2;
         }
-        else
+        if (pictureBox.Height > panel.ClientSize.Height)
         {
-            x = panel.Padding.Left;
-        }
-
-        if (pictureBox.Height < panel.ClientSize.Height)
-        {
-            y = (panel.ClientSize.Height - pictureBox.Height) / 2;
-        }
-        else
-        {
-            y = panel.Padding.Top;
+            panel.VerticalScroll.Value = (pictureBox.Height - panel.ClientSize.Height) / 2;
         }
 
         pictureBox.Location = new Point(x, y);
+
+        // Ensure scroll position is updated
+        panel.AutoScrollPosition = new Point(
+            panel.HorizontalScroll.Value,
+            panel.VerticalScroll.Value
+        );
     }
     private ToolStripButton CreateToolStripButton(string text)
     {
@@ -707,31 +704,46 @@ public partial class MainForm : Form
     }
 
     private void RotateImage(object? sender, EventArgs e)
+{
+    if (_currentImage == null) return;
+
+    // Create a new bitmap with swapped width/height for 90-degree rotation
+    var rotated = new Bitmap(_currentImage.Height, _currentImage.Width);
+
+    using (Graphics g = Graphics.FromImage(rotated))
     {
-        if (_currentImage == null) return;
+        // Enable high quality rendering
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.SmoothingMode = SmoothingMode.HighQuality;
 
-        // Create a new bitmap with swapped width/height for 90-degree rotation
-        var rotated = new Bitmap(_currentImage.Height, _currentImage.Width);
-
-        using (Graphics g = Graphics.FromImage(rotated))
-        {
-            // Rotate 90 degrees clockwise
-            g.TranslateTransform((float)rotated.Width / 2, (float)rotated.Height / 2);
-            g.RotateTransform(90);
-            g.TranslateTransform(-(float)_currentImage.Width / 2, -(float)_currentImage.Height / 2);
-            g.DrawImage(_currentImage, Point.Empty);
-        }
-
-        // Dispose of the old image and update with the new one
-        _currentImage.Dispose();
-        _currentImage = rotated;
-        pictureBox.Image = _currentImage;
-
-        // Ensure the window size is updated for the new image dimensions
-        SetWindowAndImageSize(_currentImage);
-        CenterPictureBox();
-        CopyScreenshotWithAnnotationsToClipboard();
+        // Rotate 90 degrees clockwise
+        g.TranslateTransform((float)rotated.Width / 2, (float)rotated.Height / 2);
+        g.RotateTransform(90);
+        g.TranslateTransform(-(float)_currentImage.Width / 2, -(float)_currentImage.Height / 2);
+        g.DrawImage(_currentImage, Point.Empty);
     }
+
+    // Dispose of the old image and update with the new one
+    _currentImage.Dispose();
+    _currentImage = rotated;
+
+    // Update PictureBox
+    pictureBox.Image = _currentImage;
+    pictureBox.Size = _currentImage.Size;
+
+    // Resize the window and center the image
+    SetWindowAndImageSize(_currentImage);
+    
+    // Force layout update
+    panel.PerformLayout();
+    
+    // Ensure proper centering after layout update
+    Application.DoEvents(); // Allow layout to complete
+    CenterPictureBox();
+    
+    CopyScreenshotWithAnnotationsToClipboard();
+}
 
     private void SaveImage(object? sender, EventArgs e)
     {
