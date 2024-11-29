@@ -96,6 +96,18 @@ public partial class MainForm : Form
                 return true;
             }
         }
+        if (keyData == (Keys.Control | Keys.Z) && _annotationService.CanUndo)
+        {
+            _annotationService.Undo();
+            pictureBox.Invalidate();
+            return true;
+        }
+        if (keyData == (Keys.Control | Keys.Y) && _annotationService.CanRedo)
+        {
+            _annotationService.Redo();
+            pictureBox.Invalidate();
+            return true;
+        }
         return base.ProcessCmdKey(ref msg, keyData);
     }
     private void SetupUI()

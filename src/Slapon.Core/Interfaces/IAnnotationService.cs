@@ -18,6 +18,11 @@ public interface IAnnotationService
     void MoveSelectedAnnotation(PointF newLocation);
     event EventHandler<EventArgs>? AnnotationsChanged;
     IAnnotation? GetAnnotationAt(Point point);
+    bool CanUndo { get; }
+    bool CanRedo { get; }
 
-    
+    void Undo();
+    void Redo();
+    void ExecuteCommand(ICommand command);
+
 }

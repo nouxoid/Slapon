@@ -1,39 +1,72 @@
 using System.Drawing;
 using Slapon.Core.Models;
 using Slapon.Core.Interfaces;
-
+using Slapon.Core.Commands;
 namespace Slapon.Core.Services;
 
 public class AnnotationService : IAnnotationService
 {
     // Private fields
     private readonly List<IAnnotation> _annotations = new();
+    private readonly Stack<ICommand> _undoStack = new();
+    private readonly Stack<ICommand> _redoStack = new();
 
     // Properties
     public IReadOnlyList<IAnnotation> Annotations => _annotations.AsReadOnly();
     public IAnnotation? SelectedAnnotation => _annotations.FirstOrDefault(a => a.IsSelected);
-
+    public bool CanUndo => _undoStack.Count > 0;
+    public bool CanRedo => _redoStack.Count > 0;
     // Events
     public event EventHandler<EventArgs>? AnnotationsChanged;
+
+    public void ExecuteCommand(ICommand command)
+    {
+        command.Execute();
+        _undoStack.Push(command);
+        _redoStack.Clear(); // Clear redo stack when new command is executed
+        OnAnnotationsChanged();
+    }
+
+    
+
+    public void Undo()
+    {
+        if (!CanUndo) return;
+
+        var command = _undoStack.Pop();
+        command.Undo();
+        _redoStack.Push(command);
+        OnAnnotationsChanged();
+    }
+
+    public void Redo()
+    {
+        if (!CanRedo) return;
+
+        var command = _redoStack.Pop();
+        command.Execute();
+        _undoStack.Push(command);
+        OnAnnotationsChanged();
+    }
+
 
     // Annotation Management Methods
     public void AddAnnotation(IAnnotation annotation)
     {
-        _annotations.Add(annotation);
-        OnAnnotationsChanged();
+        ExecuteCommand(new AddAnnotationCommand(this, annotation));
     }
 
     public void RemoveAnnotation(IAnnotation annotation)
     {
-        if (_annotations.Remove(annotation))
-        {
-            OnAnnotationsChanged();
-        }
+        ExecuteCommand(new RemoveAnnotationCommand(this, annotation));
     }
 
     public void ClearAnnotations()
     {
+        // Consider implementing a ClearAnnotationsCommand if you want to undo this operation
         _annotations.Clear();
+        _undoStack.Clear();
+        _redoStack.Clear();
         OnAnnotationsChanged();
     }
 
@@ -82,4 +115,13 @@ public class AnnotationService : IAnnotationService
     {
         AnnotationsChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    public interface ICommand
+    {
+        void Execute();
+        void Undo();
+    }
+
+  
+   
 }
