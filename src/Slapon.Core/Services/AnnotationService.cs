@@ -58,21 +58,20 @@ public class AnnotationService : IAnnotationService
         OnAnnotationsChanged();
     }
 
-
-    // Annotation Management Methods
     public void AddAnnotation(IAnnotation annotation)
     {
-        ExecuteCommand(new AddAnnotationCommand(this, annotation));
+        var command = new AddAnnotationCommand(this, annotation);
+        ExecuteCommand(command);
     }
 
     public void RemoveAnnotation(IAnnotation annotation)
     {
-        ExecuteCommand(new RemoveAnnotationCommand(this, annotation));
+        var command = new RemoveAnnotationCommand(this, annotation);
+        ExecuteCommand(command);
     }
 
     public void ClearAnnotations()
     {
-        // Consider implementing a ClearAnnotationsCommand if you want to undo this operation
         _annotations.Clear();
         _undoStack.Clear();
         _redoStack.Clear();
