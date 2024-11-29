@@ -20,6 +20,11 @@ namespace Slapon.Core.Interfaces
         bool CanUndo { get; }
         bool CanRedo { get; }
 
+        void AddPreviewAnnotation(IAnnotation annotation);
+        void RemovePreviewAnnotation(IAnnotation annotation);
+
+        void MoveAnnotation(IAnnotation annotation, PointF fromLocation, PointF toLocation);
+
         void Undo();
         void Redo();
         void ExecuteCommand(ICommand command);

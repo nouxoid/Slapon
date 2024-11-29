@@ -36,7 +36,8 @@ public partial class MainForm : Form
 
     private float originalHeight;
     private float originalWidth;
-    
+    private PointF? _dragStartPosition;
+
 
 
 
@@ -1022,6 +1023,7 @@ public partial class MainForm : Form
                     _dragStart = e.Location;
                     _lastMousePosition = e.Location;
                     _draggedAnnotation = clickedAnnotation;
+                    _dragStartPosition = null; // Reset drag start position
                     _annotationService.SelectAnnotation(clickedAnnotation);
                 }
                 else
@@ -1054,9 +1056,14 @@ public partial class MainForm : Form
             int deltaX = e.Location.X - _lastMousePosition.X;
             int deltaY = e.Location.Y - _lastMousePosition.Y;
 
-            // Move the annotation
-            _draggedAnnotation.Move(deltaX, deltaY);
+            // Store the initial position if we haven't already
+            if (!_dragStartPosition.HasValue)
+            {
+                _dragStartPosition = _draggedAnnotation.Bounds.Location;
+            }
 
+            // Move the annotation directly without creating a command
+            _draggedAnnotation.Move(deltaX, deltaY);
             // Update last mouse position
             _lastMousePosition = e.Location;
             pictureBox.Invalidate();
@@ -1068,7 +1075,7 @@ public partial class MainForm : Form
             // Remove the previous preview annotation if it exists
             if (_currentAnnotation != null)
             {
-                _annotationService.RemoveAnnotation(_currentAnnotation);
+                _annotationService.RemovePreviewAnnotation(_currentAnnotation);
             }
 
             // Create and add the new preview annotation
@@ -1082,7 +1089,7 @@ public partial class MainForm : Form
 
             if (_currentAnnotation != null)
             {
-                _annotationService.AddAnnotation(_currentAnnotation);
+                _annotationService.AddPreviewAnnotation(_currentAnnotation);
             }
 
             pictureBox.Invalidate();
@@ -1094,6 +1101,14 @@ public partial class MainForm : Form
     {
         if (_currentTool == AnnotationTool.Select && _draggedAnnotation != null)
         {
+
+            // If we actually moved the annotation
+            if (_dragStartPosition.HasValue)
+            {
+                // Create a single move command for the entire drag operation
+                _annotationService.MoveAnnotation(_draggedAnnotation, _dragStartPosition.Value, _draggedAnnotation.Bounds.Location);
+            }
+
             _dragStart = null;
             _draggedAnnotation = null;
             pictureBox.Invalidate();
@@ -1122,10 +1137,10 @@ public partial class MainForm : Form
                         // Remove the preview annotation
                         if (_currentAnnotation != null)
                         {
-                            _annotationService.RemoveAnnotation(_currentAnnotation);
+                            _annotationService.RemovePreviewAnnotation(_currentAnnotation);
                         }
 
-                        // Add the final annotation
+                        // Add the final annotation (this will be undoable)
                         _annotationService.AddAnnotation(annotation);
                         _annotationService.SelectAnnotation(annotation);
 
