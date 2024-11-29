@@ -7,7 +7,7 @@ namespace Slapon.Core.Services;
 public class AnnotationService : IAnnotationService
 {
     // Private fields
-    private readonly List<IAnnotation> _annotations = new();
+    internal readonly List<IAnnotation> _annotations = new();
     private readonly Stack<ICommand> _undoStack = new();
     private readonly Stack<ICommand> _redoStack = new();
 
@@ -27,7 +27,16 @@ public class AnnotationService : IAnnotationService
         OnAnnotationsChanged();
     }
 
-    
+
+    internal void InternalAddAnnotation(IAnnotation annotation)
+    {
+        _annotations.Add(annotation);
+    }
+
+    internal void InternalRemoveAnnotation(IAnnotation annotation)
+    {
+        _annotations.Remove(annotation);
+    }
 
     public void Undo()
     {
@@ -105,8 +114,8 @@ public class AnnotationService : IAnnotationService
         var selected = SelectedAnnotation;
         if (selected != null)
         {
-            selected.MoveTo(newLocation);
-            OnAnnotationsChanged();
+            var oldLocation = selected.Bounds.Location;
+            ExecuteCommand(new MoveAnnotationCommand(selected, oldLocation, newLocation));
         }
     }
 
@@ -116,11 +125,7 @@ public class AnnotationService : IAnnotationService
         AnnotationsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public interface ICommand
-    {
-        void Execute();
-        void Undo();
-    }
+    
 
   
    

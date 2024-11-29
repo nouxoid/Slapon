@@ -6,9 +6,10 @@ using System.Threading.Tasks;
 
 namespace Slapon.Core.Interfaces
 {
-    internal interface ICommand
+    public interface ICommand
     {
         void Execute();
         void Undo();
     }
 }
+

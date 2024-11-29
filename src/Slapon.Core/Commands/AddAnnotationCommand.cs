@@ -1,11 +1,14 @@
-﻿namespace Slapon.Core.Commands
+﻿using Slapon.Core.Interfaces;
+using Slapon.Core.Services;
+
+namespace Slapon.Core.Commands
 {
     public class AddAnnotationCommand : ICommand
     {
-        private readonly IAnnotationService _service;
+        private readonly AnnotationService _service;
         private readonly IAnnotation _annotation;
 
-        public AddAnnotationCommand(IAnnotationService service, IAnnotation annotation)
+        public AddAnnotationCommand(AnnotationService service, IAnnotation annotation)
         {
             _service = service;
             _annotation = annotation;
@@ -13,12 +16,12 @@
 
         public void Execute()
         {
-            _service._annotations.Add(_annotation);
+            _service.InternalAddAnnotation(_annotation);
         }
 
         public void Undo()
         {
-            _service._annotations.Remove(_annotation);
+            _service.InternalRemoveAnnotation(_annotation);
         }
     }
 }
