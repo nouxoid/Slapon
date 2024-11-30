@@ -26,5 +26,7 @@
         public static System.Drawing.Image? colorIcon => LoadImage(Path.Combine(IconPath, "colorpicker.png"));
 
         public static System.Drawing.Image? rotate => LoadImage(Path.Combine(IconPath, "rotation.png"));
+        public static System.Drawing.Image? undo => LoadImage(Path.Combine(IconPath, "undo.png"));
+        public static System.Drawing.Image? redo => LoadImage(Path.Combine(IconPath, "redo.png"));
     }
 }

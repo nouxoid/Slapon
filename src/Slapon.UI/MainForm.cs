@@ -77,7 +77,8 @@ public partial class MainForm : Form
         _annotationService.AnnotationsChanged += (s, e) =>
         {
             pictureBox.Invalidate();
-            
+            UpdateUndoRedoState();
+
         };
         SetupUI();
 
@@ -186,6 +187,29 @@ public partial class MainForm : Form
     private IEnumerable<ToolStripItem> CreateDrawingTools()
     {
         yield return CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture);
+        // Add Undo/Redo buttons right after New Capture
+        yield return CreateModernButton("", Resources.undo, (s, e) =>
+        {
+            if (_annotationService.CanUndo)
+            {
+                _annotationService.Undo();
+                pictureBox.Invalidate();
+                UpdateUndoRedoState();
+            }
+        });
+
+        yield return CreateModernButton("", Resources.redo, (s, e) =>
+        {
+            if (_annotationService.CanRedo)
+            {
+                _annotationService.Redo();
+                pictureBox.Invalidate();
+                UpdateUndoRedoState();
+            }
+        });
+
+        // Add a separator between undo/redo and drawing tools
+        yield return new ToolStripSeparator();
 
         // Initialize and store tool buttons as class fields
         btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
@@ -199,6 +223,17 @@ public partial class MainForm : Form
         yield return lineButton;
         yield return textButton;
         yield return selectButton;
+    }
+
+    // Add these as class fields
+    private ToolStripButton? undoButton;
+    private ToolStripButton? redoButton;
+
+    // Add this method to update undo/redo button states
+    private void UpdateUndoRedoState()
+    {
+        if (undoButton != null) undoButton.Enabled = _annotationService.CanUndo;
+        if (redoButton != null) redoButton.Enabled = _annotationService.CanRedo;
     }
 
     private IEnumerable<ToolStripItem> CreateColorTools()
