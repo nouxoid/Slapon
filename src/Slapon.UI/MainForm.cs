@@ -469,6 +469,7 @@ public partial class MainForm : Form
         CenterPictureBox();
         ResizePictureBox();
         RedrawImage();
+        ResizeAnnotations();
     }
 
     private void RedrawImage()
@@ -644,6 +645,9 @@ public partial class MainForm : Form
 
         try
         {
+            originalWidth = image.Width; // Set original width
+            originalHeight = image.Height; // Set original height
+
             // Calculate the minimum window size including toolstrip
             int toolStripItemsWidth = toolStrip.Items.Cast<ToolStripItem>().Sum(item => item.Width);
             int minWidth = Math.Max(800, toolStripItemsWidth + 40);
