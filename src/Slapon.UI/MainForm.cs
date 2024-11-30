@@ -113,38 +113,132 @@ public partial class MainForm : Form
     }
     private void SetupUI()
     {
-        // PictureBox setup
+        InitializePictureBox();
+        InitializePanel();
+        InitializeToolStrip();
+        SetupEventHandlers();
+    }
+
+    private void InitializePictureBox()
+    {
         pictureBox = new PictureBox
         {
             SizeMode = PictureBoxSizeMode.AutoSize,
             Dock = DockStyle.None
         };
 
-        // Enable double buffering for PictureBox
-        typeof(PictureBox).InvokeMember("DoubleBuffered",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
-            null, pictureBox, new object[] { true });
+        EnableDoubleBuffering(pictureBox);
+    }
 
-        // Panel setup
+    private void InitializePanel()
+    {
         panel = new Panel
         {
             Dock = DockStyle.Fill,
             AutoScroll = true,
             BorderStyle = BorderStyle.None,
             Padding = new Padding(16),
-            BackColor = Color.LightGray  // This helps visually identify the panel bounds
+            BackColor = Color.LightGray
         };
 
-        // Enable double buffering for Panel
-        typeof(Panel).InvokeMember("DoubleBuffered",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
-            null, panel, new object[] { true });
-
-        panel.Resize += Panel_Resize;
+        EnableDoubleBuffering(panel);
         panel.Controls.Add(pictureBox);
+    }
 
-        
-        //rotateButton.Click += RotateImage;
+    private void EnableDoubleBuffering(Control control)
+    {
+        typeof(Control).InvokeMember("DoubleBuffered",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
+            null, control, new object[] { true });
+    }
+
+    private void InitializeToolStrip()
+    {
+        toolStrip = CreateToolStrip();
+        var toolStripItems = new List<ToolStripItem>();
+
+        // Create and add drawing tools
+        toolStripItems.AddRange(CreateDrawingTools());
+
+        // Add separator
+        toolStripItems.Add(new ToolStripSeparator());
+
+        // Create and add color tools
+        toolStripItems.AddRange(CreateColorTools());
+
+        // Create and add utility tools
+        toolStripItems.AddRange(CreateUtilityTools());
+
+        toolStrip.Items.AddRange(toolStripItems.ToArray());
+    }
+
+    private ToolStrip CreateToolStrip() => new()
+    {
+        Renderer = new CustomToolStripRenderer(),
+        GripStyle = ToolStripGripStyle.Hidden,
+        BackColor = Color.White,
+        ForeColor = Color.White,
+        Padding = new Padding(8, 2, 8, 2),
+        Height = 48,
+        Dock = DockStyle.Top
+    };
+
+    private IEnumerable<ToolStripItem> CreateDrawingTools()
+    {
+        yield return CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture);
+
+        // Initialize and store tool buttons as class fields
+        btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
+        btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
+        lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
+        textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
+        selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select));
+
+        yield return btnRectangleTool;
+        yield return btnHighlightTool;
+        yield return lineButton;
+        yield return textButton;
+        yield return selectButton;
+    }
+
+    private IEnumerable<ToolStripItem> CreateColorTools()
+    {
+        var colors = new[]
+        {
+        Color.FromArgb(255, 51, 51),   // Red
+        Color.FromArgb(51, 255, 51),   // Green
+        Color.FromArgb(51, 51, 255),   // Blue
+        Color.FromArgb(255, 255, 51),  // Yellow
+        Color.FromArgb(255, 51, 255)   // Pink
+    };
+
+        foreach (var color in colors)
+        {
+            var colorButton = CreateColorButton(color);
+            colorButton.Tag = "color";
+            yield return colorButton;
+        }
+
+        yield return CreateColorPickerButton();
+    }
+
+    private ToolStripButton CreateColorPickerButton()
+    {
+        var button = new ToolStripButton
+        {
+            Image = Resources.colorIcon,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            Text = string.Empty,
+            TextImageRelation = TextImageRelation.ImageBeforeText
+        };
+        button.Click += ChangeColor;
+        return button;
+    }
+
+    private IEnumerable<ToolStripItem> CreateUtilityTools()
+    {
+        yield return new ToolStripSeparator();
+
         rotateButton = new ToolStripButton
         {
             Image = Resources.rotate,
@@ -152,125 +246,23 @@ public partial class MainForm : Form
             Text = "Rotate"
         };
         rotateButton.Click += RotateImage;
-        // First create all the tool buttons
-        btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle));
-        btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight));
-        lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line));
-        textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text));
-        selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select));
+        yield return rotateButton;
 
-        var colorPickerButton = new ToolStripButton
-        {
-            Image = Resources.colorIcon,
-            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
-            Text = string.Empty, // Ensure text is empty
-            TextImageRelation = TextImageRelation.ImageBeforeText // Image before text
-        };
+        yield return CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations());
+        yield return CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
+        yield return CreateModernButton("Save", null, SaveImage);
+    }
 
-        colorPickerButton.Click += ChangeColor;
-
-        
-
-        // Toolbar setup
-        toolStrip = new ToolStrip
-        {
-            Renderer = new CustomToolStripRenderer(),
-            GripStyle = ToolStripGripStyle.Hidden,
-            BackColor = Color.White,
-            ForeColor = Color.White,
-            Padding = new Padding(8, 2, 8, 2),
-            Height = 48,
-            Dock = DockStyle.Top
-        };
-
-        // Create all buttons
-        var leftGroup = new List<ToolStripItem>
+    private void SetupEventHandlers()
     {
-        CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture)
-    };
-
-        var centerGroup = new List<ToolStripItem>
-    {
-        btnRectangleTool,
-        btnHighlightTool,
-        lineButton,
-        textButton,
-        selectButton,
-        new ToolStripSeparator(),
-          
-    };
-
-        // Create color buttons
-        var commonColors = new[]
-        {
-        Color.FromArgb(255, 51, 51),   // Red
-        Color.FromArgb(51, 255, 51),   // Green
-        Color.FromArgb(51, 51, 255),   // Blue
-        Color.FromArgb(255, 255, 51),  // Yellow
-        Color.FromArgb(255, 51, 255),  // Pink
-    };
-
-        foreach (var color in commonColors)
-        {
-            var colorButton = CreateColorButton(color);
-            colorButton.Tag = "color";
-            centerGroup.Add(colorButton);
-        }
-
-        // Add color picker and clear button to center group
-        centerGroup.Add(colorPickerButton);
-        centerGroup.Add(new ToolStripSeparator());
-        centerGroup.Add(rotateButton);
-        centerGroup.Add(CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations()));
-
-        // Create right-aligned buttons
-        var rightGroup = new List<ToolStripItem>
-    {
-        CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard()),
-        CreateModernButton("Save", null, SaveImage)
-    };
-
-        // Create springs
-        var leftSpring = new ToolStripSeparator
-        {
-            AutoSize = true,
-            Margin = new Padding(0),
-            Alignment = ToolStripItemAlignment.Left
-        };
-
-        var rightSpring = new ToolStripSeparator
-        {
-            AutoSize = true,
-            Margin = new Padding(0),
-            Alignment = ToolStripItemAlignment.Right
-        };
-
-        // Set alignments
-        foreach (var item in centerGroup)
-        {
-            item.Alignment = ToolStripItemAlignment.Left;
-        }
-
-        foreach (var item in rightGroup)
-        {
-            item.Alignment = ToolStripItemAlignment.Right;
-        }
-
-        // Add all items to toolbar in correct order
-        toolStrip.Items.AddRange(leftGroup.ToArray());
-        toolStrip.Items.Add(leftSpring);
-        toolStrip.Items.AddRange(centerGroup.ToArray());
-        toolStrip.Items.Add(rightSpring);
-        toolStrip.Items.AddRange(rightGroup.ToArray());
-
-        Controls.Add(panel);
-        Controls.Add(toolStrip);
-
-        // PictureBox event handlers
+        panel.Resize += Panel_Resize;
         pictureBox.Paint += PictureBox_Paint;
         pictureBox.MouseDown += PictureBox_MouseDown;
         pictureBox.MouseMove += PictureBox_MouseMove;
         pictureBox.MouseUp += PictureBox_MouseUp;
+
+        Controls.Add(panel);
+        Controls.Add(toolStrip);
     }
 
     private class ColorPalette
