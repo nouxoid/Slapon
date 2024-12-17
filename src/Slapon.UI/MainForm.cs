@@ -803,6 +803,17 @@ private ToolStripButton btnOcr;
         }
     }
 
+    private Bitmap CaptureScreen()
+    {
+        var bounds = Screen.PrimaryScreen.Bounds;
+        var screenshot = new Bitmap(bounds.Width, bounds.Height);
+        using (var g = Graphics.FromImage(screenshot))
+        {
+            g.CopyFromScreen(Point.Empty, Point.Empty, bounds.Size);
+        }
+        return screenshot;
+    }
+
     private void RotateImage(object? sender, EventArgs e)
     {
         if (_currentImage == null) return;
