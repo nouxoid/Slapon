@@ -28,5 +28,6 @@
         public static System.Drawing.Image? rotate => LoadImage(Path.Combine(IconPath, "rotation.png"));
         public static System.Drawing.Image? undo => LoadImage(Path.Combine(IconPath, "undo.png"));
         public static System.Drawing.Image? redo => LoadImage(Path.Combine(IconPath, "redo.png"));
+        public static System.Drawing.Image? ocr => LoadImage(Path.Combine(IconPath, "ocr.png"));
     }
 }
