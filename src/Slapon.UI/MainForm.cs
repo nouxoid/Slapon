@@ -53,6 +53,7 @@ public partial class MainForm : Form
     private PictureBox pictureBox;
     private readonly ScreenCaptureService _screenCaptureService;
 
+    private ToolStripButton ocrButton;
     private ToolStripButton btnRectangleTool;
     private ToolStripButton btnHighlightTool;
     private ToolStripButton lineButton;
@@ -288,12 +289,13 @@ private ToolStripButton btnOcr;
         yield return rotateButton;
 
         yield return CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations());
+        // Add OCR button here, using your established CreateModernButton pattern
+        ocrButton = CreateModernButton("", Resources.ocr, async (s, e) => await PerformOcr());
+        yield return ocrButton;
         yield return CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
         yield return CreateModernButton("Save", null, SaveImage);
 
-        // Add OCR button
-        btnOcr = CreateModernButton("OCR", Resources.ocr, async (s, e) => await StartOcrCapture());
-        yield return btnOcr;
+        
     }
 
     private void SetupEventHandlers()
@@ -306,6 +308,134 @@ private ToolStripButton btnOcr;
 
         Controls.Add(panel);
         Controls.Add(toolStrip);
+    }
+
+    private async Task PerformOcr()
+    {
+        if (_currentImage == null)
+        {
+            MessageBox.Show("Please capture or open an image first.", "No Image", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        try
+        {
+            // Store the original cursor
+            var originalCursor = Cursor;
+            Cursor = Cursors.Cross;
+
+            // Variables to store selection coordinates
+            Point startPoint = Point.Empty;
+            Rectangle selectionRect = Rectangle.Empty;
+            bool isSelecting = false;
+
+            // Create a temporary bitmap for drawing the selection rectangle
+            var tempImage = new Bitmap(_currentImage);
+            pictureBox.Image = tempImage;
+
+            var tcs = new TaskCompletionSource<bool>();
+
+            // Define the event handlers
+            MouseEventHandler mouseDownHandler = null;
+            MouseEventHandler mouseMoveHandler = null;
+            MouseEventHandler mouseUpHandler = null;
+
+            mouseDownHandler = (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    isSelecting = true;
+                    startPoint = e.Location;
+                }
+            };
+
+            mouseMoveHandler = (s, e) =>
+            {
+                if (isSelecting)
+                {
+                    using (var g = Graphics.FromImage(tempImage))
+                    {
+                        g.DrawImage(_currentImage, 0, 0);
+
+                        selectionRect = new Rectangle(
+                            Math.Min(startPoint.X, e.X),
+                            Math.Min(startPoint.Y, e.Y),
+                            Math.Abs(e.X - startPoint.X),
+                            Math.Abs(e.Y - startPoint.Y)
+                        );
+
+                        using (Pen pen = new Pen(Color.Blue, 2))
+                        {
+                            g.DrawRectangle(pen, selectionRect);
+                        }
+                    }
+                    pictureBox.Refresh();
+                }
+            };
+
+            mouseUpHandler = async (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left && isSelecting)
+                {
+                    isSelecting = false;
+
+                    // Clean up event handlers
+                    pictureBox.MouseDown -= mouseDownHandler;
+                    pictureBox.MouseMove -= mouseMoveHandler;
+                    pictureBox.MouseUp -= mouseUpHandler;
+
+                    // Restore original state
+                    pictureBox.Image = _currentImage;
+                    Cursor = originalCursor;
+
+                    if (selectionRect.Width > 10 && selectionRect.Height > 10)
+                    {
+                        try
+                        {
+                            using var selectedRegion = new Bitmap(selectionRect.Width, selectionRect.Height);
+                            using (var g = Graphics.FromImage(selectedRegion))
+                            {
+                                g.DrawImage(_currentImage,
+                                    new Rectangle(0, 0, selectionRect.Width, selectionRect.Height),
+                                    selectionRect,
+                                    GraphicsUnit.Pixel);
+                            }
+
+                            var ocrService = new TesseractOcrService(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata"));
+                            string result = await ocrService.ExtractTextAsync(selectedRegion);
+
+                            if (string.IsNullOrWhiteSpace(result))
+                            {
+                                MessageBox.Show("No text was detected in the selected area.", "OCR Result", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            }
+                            else
+                            {
+                                var resultForm = new OcrResultForm();
+                                resultForm.SetText(result);
+                                resultForm.ShowDialog();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"OCR failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                    tcs.SetResult(true);
+                }
+            };
+
+            // Attach the event handlers
+            pictureBox.MouseDown += mouseDownHandler;
+            pictureBox.MouseMove += mouseMoveHandler;
+            pictureBox.MouseUp += mouseUpHandler;
+
+            // Wait for selection to complete
+            await tcs.Task;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"OCR failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private class ColorPalette
@@ -546,6 +676,29 @@ private ToolStripButton btnOcr;
         if (_currentImage != null)
         {
             Clipboard.SetImage(_currentImage);
+        }
+    }
+
+    private async void OcrButton_Click(object sender, EventArgs e)
+    {
+        if (_currentImage == null)
+        {
+            MessageBox.Show("Please open an image first.", "No Image", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        try
+        {
+            var ocrService = new TesseractOcrService(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata"));
+            string result = await ocrService.ExtractTextAsync(new Bitmap(_currentImage));
+
+            var resultForm = new OcrResultForm();
+            resultForm.SetText(result);
+            resultForm.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"OCR failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
