@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Drawing;
+using System.Drawing.Imaging;  // Keep this for ImageFormat
+using System.IO;
 using System.Threading.Tasks;
 using Tesseract;
 
@@ -21,7 +21,13 @@ namespace Slapon.Core.Services
             return await Task.Run(() =>
             {
                 using var engine = new TesseractEngine(_tessdataPath, "eng", EngineMode.Default);
-                using var page = engine.Process(image);
+                // Convert Bitmap to Pix using memory stream
+                using var ms = new MemoryStream();
+                // Use fully qualified name for ImageFormat
+                image.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                ms.Position = 0;
+                using var pix = Pix.LoadFromMemory(ms.ToArray());
+                using var page = engine.Process(pix);
                 return page.GetText();
             });
         }
