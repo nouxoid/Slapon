@@ -63,6 +63,9 @@ public partial class MainForm : Form
     private ToolStrip toolStrip;
     private Panel panel;
 
+    private IOcrService _ocrService;
+private ToolStripButton btnOcr;
+
 
 
 
@@ -74,6 +77,7 @@ public partial class MainForm : Form
         _annotationService = new AnnotationService();
         _annotationFactory = new AnnotationFactory();
         _screenCaptureService = new ScreenCaptureService();
+        _ocrService = new TesseractOcrService(Path.Combine(Application.StartupPath, "tessdata"));
         _annotationService.AnnotationsChanged += (s, e) =>
         {
             pictureBox.Invalidate();
@@ -286,6 +290,10 @@ public partial class MainForm : Form
         yield return CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations());
         yield return CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard());
         yield return CreateModernButton("Save", null, SaveImage);
+
+        // Add OCR button
+        btnOcr = CreateModernButton("OCR", Resources.ocr, async (s, e) => await StartOcrCapture());
+        yield return btnOcr;
     }
 
     private void SetupEventHandlers()
@@ -591,6 +599,40 @@ public partial class MainForm : Form
         }
     }
 
+    // Add OCR capture method
+    private async Task StartOcrCapture()
+    {
+        var screenshot = CaptureScreen();
+        using var selectionForm = new SelectionOverlayForm(screenshot);
+
+        if (selectionForm.ShowDialog() == DialogResult.OK)
+        {
+            var bounds = selectionForm.SelectionBounds;
+            using var selectedArea = new Bitmap(bounds.Width, bounds.Height);
+            using (var g = Graphics.FromImage(selectedArea))
+            {
+                g.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
+            }
+
+            try
+            {
+                Cursor = Cursors.WaitCursor;
+                string extractedText = await _ocrService.ExtractTextAsync(selectedArea);
+
+                var resultForm = new OcrResultForm();
+                resultForm.SetText(extractedText);
+                resultForm.Show(this);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"OCR Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+            }
+        }
+    }
 
     private async void StartScreenCapture(object? sender, EventArgs e)
     {

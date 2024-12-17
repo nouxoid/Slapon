@@ -20,6 +20,16 @@
   </ItemGroup>
   
   <ItemGroup>
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+</ItemGroup>
+
+<ItemGroup>
+    <None Include="tessdata\**">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+</ItemGroup>
+  
+  <ItemGroup>
     <Content Include="icons\*.png">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
