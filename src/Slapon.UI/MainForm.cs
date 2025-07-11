@@ -66,10 +66,10 @@ public partial class MainForm : Form
         Highlight,
         Line,
         Text,
+        Arrow,
         Select
     }
 
-    private TextBox? _textBox;
     private Point? _lineStart;
     private AnnotationTool _currentTool = AnnotationTool.Select;
     private Point? _drawStart;
@@ -86,6 +86,10 @@ public partial class MainForm : Form
     private bool _annotationsInitialized = false;
 
     private PointF? _dragStartPosition;
+
+    // Add these fields to the class
+    private Point _textEditLocation;
+    private TextAnnotation? _textEditAnnotation;
 
     private readonly IAnnotationService _annotationService;
     private readonly IAnnotationFactory _annotationFactory;
@@ -104,6 +108,7 @@ public partial class MainForm : Form
     private ToolStripButton btnHighlightTool;
     private ToolStripButton lineButton;
     private ToolStripButton textButton;
+    private ToolStripButton arrowButton;
     private ToolStripButton rotateButton;
     private ToolStripButton selectButton;
     private ToolStrip toolStrip;
@@ -292,20 +297,46 @@ public partial class MainForm : Form
             imageInfoLabel.Text = "No image loaded";
         }
 
-        // Update status message
-        statusLabel.Text = _currentTool switch
+        // Update status message with contextual information
+        string baseMessage = _currentTool switch
         {
             AnnotationTool.Rectangle => "Click and drag to create a rectangle",
             AnnotationTool.Highlight => "Click and drag to highlight an area",
             AnnotationTool.Line => "Click and drag to draw a line",
-            AnnotationTool.Text => "Click to add text",
-            AnnotationTool.Select => "Click to select annotations",
+            AnnotationTool.Text => "Click to add text (Modern Text Editor)",
+            AnnotationTool.Arrow => "Click and drag to draw an arrow",
+            AnnotationTool.Select => "Click to select annotations | Double-click text to edit",
             _ => "Ready"
         };
+
+        // Add keyboard shortcut info if not typing
+        if (!IsTextInputControlFocused())
+        {
+            var shortcutInfo = _currentTool switch
+            {
+                AnnotationTool.Rectangle => " (R)",
+                AnnotationTool.Highlight => " (H)",
+                AnnotationTool.Line => " (L)",
+                AnnotationTool.Text => " (T)",
+                AnnotationTool.Arrow => " (A)",
+                AnnotationTool.Select => " (S)",
+                _ => ""
+            };
+            baseMessage += shortcutInfo;
+        }
+
+        statusLabel.Text = baseMessage;
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        // Check if a text input control is currently focused
+        if (IsTextInputControlFocused())
+        {
+            // Allow normal text input - don't process shortcuts
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
         if (keyData == Keys.Delete)
         {
             var selected = _annotationService.SelectedAnnotation;
@@ -328,14 +359,67 @@ public partial class MainForm : Form
             pictureBox.Invalidate();
             return true;
         }
-        // Quick tool switching with keyboard shortcuts
+        // Quick tool switching with keyboard shortcuts - only when not typing
         if (keyData == Keys.R) { SetActiveTool(AnnotationTool.Rectangle); return true; }
         if (keyData == Keys.H) { SetActiveTool(AnnotationTool.Highlight); return true; }
         if (keyData == Keys.L) { SetActiveTool(AnnotationTool.Line); return true; }
         if (keyData == Keys.T) { SetActiveTool(AnnotationTool.Text); return true; }
+        if (keyData == Keys.A) { SetActiveTool(AnnotationTool.Arrow); return true; }
         if (keyData == Keys.S) { SetActiveTool(AnnotationTool.Select); return true; }
         
         return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    /// <summary>
+    /// Checks if a text input control (TextBox, RichTextBox, etc.) is currently focused
+    /// </summary>
+    private bool IsTextInputControlFocused()
+    {
+        var focusedControl = GetFocusedControl();
+        return focusedControl is TextBox || focusedControl is RichTextBox || focusedControl is ComboBox;
+    }
+
+    /// <summary>
+    /// Gets the currently focused control, traversing through container controls
+    /// </summary>
+    private Control? GetFocusedControl()
+    {
+        Control? focusedControl = null;
+        
+        // Check if this form has focus
+        if (this.ContainsFocus)
+        {
+            // Traverse through all controls to find the focused one
+            focusedControl = FindFocusedControl(this);
+        }
+        
+        return focusedControl;
+    }
+
+    /// <summary>
+    /// Recursively finds the focused control within a container
+    /// </summary>
+    private Control? FindFocusedControl(Control container)
+    {
+        foreach (Control control in container.Controls)
+        {
+            if (control.Focused)
+            {
+                return control;
+            }
+            
+            // If this control has child controls, search recursively
+            if (control.HasChildren)
+            {
+                var focusedChild = FindFocusedControl(control);
+                if (focusedChild != null)
+                {
+                    return focusedChild;
+                }
+            }
+        }
+        
+        return null;
     }
 
     private void SetupUI()
@@ -453,12 +537,14 @@ public partial class MainForm : Form
         btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight), "H");
         lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line), "L");
         textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text), "T");
+        arrowButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Arrow), "A"); // Using line icon for now
         selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select), "S");
 
         yield return btnRectangleTool;
         yield return btnHighlightTool;
         yield return lineButton;
         yield return textButton;
+        yield return arrowButton;
         yield return selectButton;
     }
 
@@ -542,9 +628,24 @@ public partial class MainForm : Form
         pictureBox.MouseDown += PictureBox_MouseDown;
         pictureBox.MouseMove += PictureBox_MouseMove;
         pictureBox.MouseUp += PictureBox_MouseUp;
+        pictureBox.MouseDoubleClick += PictureBox_MouseDoubleClick;
 
         Controls.Add(panel);
         Controls.Add(toolStrip);
+    }
+
+    private void PictureBox_MouseDoubleClick(object? sender, MouseEventArgs e)
+    {
+        if (_currentImage == null) return;
+
+        // Check if double-clicking on a text annotation to edit it
+        var clickedAnnotation = _annotationService.Annotations
+            .FirstOrDefault(a => a.HitTest(e.Location));
+
+        if (clickedAnnotation is TextAnnotation textAnnotation)
+        {
+            ShowModernTextEditor(e.Location, textAnnotation);
+        }
     }
 
     private ToolStripButton CreateModernColorButton(Color color)
@@ -670,11 +771,23 @@ public partial class MainForm : Form
         UpdateStatusBar();
     }
 
+    private void UpdateCursor()
+    {
+        if (_currentTool == AnnotationTool.Text)
+        {
+            pictureBox.Cursor = Cursors.IBeam;
+        }
+        else
+        {
+            pictureBox.Cursor = Cursors.Default;
+        }
+    }
+
     private void UpdateToolbarState()
     {
         // Update button states with modern styling
-        var buttons = new[] { selectButton, btnRectangleTool, btnHighlightTool, lineButton, textButton };
-        var tools = new[] { AnnotationTool.Select, AnnotationTool.Rectangle, AnnotationTool.Highlight, AnnotationTool.Line, AnnotationTool.Text };
+        var buttons = new[] { selectButton, btnRectangleTool, btnHighlightTool, lineButton, textButton, arrowButton };
+        var tools = new[] { AnnotationTool.Select, AnnotationTool.Rectangle, AnnotationTool.Highlight, AnnotationTool.Line, AnnotationTool.Text, AnnotationTool.Arrow };
 
         for (int i = 0; i < buttons.Length; i++)
         {
@@ -687,12 +800,13 @@ public partial class MainForm : Form
             }
         }
 
-        // Update tooltips with enhanced information
-        if (selectButton != null) selectButton.ToolTipText = $"Select Tool{(_currentTool == AnnotationTool.Select ? " (Active)" : "")} (S)";
-        if (btnRectangleTool != null) btnRectangleTool.ToolTipText = $"Rectangle Tool{(_currentTool == AnnotationTool.Rectangle ? " (Active)" : "")} (R)";
-        if (btnHighlightTool != null) btnHighlightTool.ToolTipText = $"Highlight Tool{(_currentTool == AnnotationTool.Highlight ? " (Active)" : "")} (H)";
-        if (lineButton != null) lineButton.ToolTipText = $"Line Tool{(_currentTool == AnnotationTool.Line ? " (Active)" : "")} (L)";
-        if (textButton != null) textButton.ToolTipText = $"Text Tool{(_currentTool == AnnotationTool.Text ? " (Active)" : "")} (T)";
+        // Update tooltips with enhanced information - note that shortcuts work when not typing
+        if (selectButton != null) selectButton.ToolTipText = $"Select Tool{(_currentTool == AnnotationTool.Select ? " (Active)" : "")} (S - when not typing)";
+        if (btnRectangleTool != null) btnRectangleTool.ToolTipText = $"Rectangle Tool{(_currentTool == AnnotationTool.Rectangle ? " (Active)" : "")} (R - when not typing)";
+        if (btnHighlightTool != null) btnHighlightTool.ToolTipText = $"Highlight Tool{(_currentTool == AnnotationTool.Highlight ? " (Active)" : "")} (H - when not typing)";
+        if (lineButton != null) lineButton.ToolTipText = $"Line Tool{(_currentTool == AnnotationTool.Line ? " (Active)" : "")} (L - when not typing)";
+        if (textButton != null) textButton.ToolTipText = $"Text Tool{(_currentTool == AnnotationTool.Text ? " (Active)" : "")} (T - when not typing)";
+        if (arrowButton != null) arrowButton.ToolTipText = $"Arrow Tool{(_currentTool == AnnotationTool.Arrow ? " (Active)" : "")} (A - when not typing)";
     }
 
     protected override void Dispose(bool disposing)
@@ -1272,6 +1386,14 @@ public partial class MainForm : Form
                     _draggedAnnotation = clickedAnnotation;
                     _dragStartPosition = null;
                     _annotationService.SelectAnnotation(clickedAnnotation);
+                    
+                    // If it's a text annotation, allow editing with double-click
+                    if (clickedAnnotation is TextAnnotation textAnnotation)
+                    {
+                        // Store location for potential edit
+                        _textEditLocation = e.Location;
+                        _textEditAnnotation = textAnnotation;
+                    }
                 }
                 else
                 {
@@ -1280,10 +1402,8 @@ public partial class MainForm : Form
             }
             else if (_currentTool == AnnotationTool.Text)
             {
-                if (_textBox == null)
-                {
-                    CreateTextBox(e.Location);
-                }
+                // Use modern text editor instead of simple TextBox
+                ShowModernTextEditor(e.Location);
             }
             else
             {
@@ -1292,6 +1412,58 @@ public partial class MainForm : Form
 
             pictureBox.Invalidate();
         }
+    }
+
+    private void ShowModernTextEditor(Point location, TextAnnotation? existingAnnotation = null)
+    {
+        var initialText = existingAnnotation?.Text ?? "";
+        var initialFont = existingAnnotation?.Font ?? new Font("Segoe UI", 12, FontStyle.Regular);
+        var initialColor = existingAnnotation?.Color ?? _currentColor;
+        var initialStyle = existingAnnotation?.Style ?? new TextStyle();
+
+        using var textEditor = new ModernTextEditorForm(initialText, initialFont, initialColor, initialStyle);
+        
+        if (textEditor.ShowDialog(this) == DialogResult.OK)
+        {
+            if (!string.IsNullOrWhiteSpace(textEditor.TextContent))
+            {
+                if (existingAnnotation != null)
+                {
+                    // Update existing annotation
+                    var updatedAnnotation = new TextAnnotation(
+                        Point.Round(existingAnnotation.Bounds.Location),
+                        textEditor.SelectedTextColor,
+                        textEditor.TextContent,
+                        textEditor.SelectedFont,
+                        textEditor.SelectedStyle
+                    );
+                    
+                    _annotationService.RemoveAnnotation(existingAnnotation);
+                    _annotationService.AddAnnotation(updatedAnnotation);
+                    _annotationService.SelectAnnotation(updatedAnnotation);
+                }
+                else
+                {
+                    // Create new annotation
+                    var newAnnotation = new TextAnnotation(
+                        location,
+                        textEditor.SelectedTextColor,
+                        textEditor.TextContent,
+                        textEditor.SelectedFont,
+                        textEditor.SelectedStyle
+                    );
+                    
+                    _annotationService.AddAnnotation(newAnnotation);
+                    _annotationService.SelectAnnotation(newAnnotation);
+                }
+                
+                CopyScreenshotWithAnnotationsToClipboard();
+                UpdateStatusBar();
+            }
+        }
+        
+        // Switch back to select tool after text creation
+        SetActiveTool(AnnotationTool.Select);
     }
 
     private void PictureBox_MouseMove(object sender, MouseEventArgs e)
@@ -1324,6 +1496,7 @@ public partial class MainForm : Form
                 AnnotationTool.Rectangle => new RectangleAnnotation(GetRectangle(_drawStart.Value, e.Location), _currentColor, 1.0f),
                 AnnotationTool.Highlight => new HighlightAnnotation(GetRectangle(_drawStart.Value, e.Location), _currentColor, 0.4f),
                 AnnotationTool.Line => new LineAnnotation(_lineStart!.Value, e.Location, _currentColor),
+                AnnotationTool.Arrow => new ArrowAnnotation(_lineStart!.Value, e.Location, _currentColor),
                 _ => null
             };
 
@@ -1364,6 +1537,7 @@ public partial class MainForm : Form
                         AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f),
                         AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f),
                         AnnotationTool.Line => new LineAnnotation(_lineStart!.Value, e.Location, _currentColor),
+                        AnnotationTool.Arrow => new ArrowAnnotation(_lineStart!.Value, e.Location, _currentColor),
                         _ => null
                     };
 
@@ -1396,201 +1570,6 @@ public partial class MainForm : Form
             Math.Abs(end.X - start.X),
             Math.Abs(end.Y - start.Y)
         );
-    }
-
-    private void CreateTextBox(Point location)
-    {
-        if (_currentImage == null) return;
-
-        _textBox?.Dispose();
-
-        _textBox = new TextBox
-        {
-            Location = location,
-            BackColor = CurrentTheme.Surface,
-            BorderStyle = BorderStyle.FixedSingle,
-            Font = new Font("Segoe UI", 12),
-            ForeColor = _currentColor,
-            Width = 200,
-            Height = 24,
-            Multiline = true,
-            MaxLength = 500
-        };
-
-        var tooltip = new ToolTip();
-        tooltip.SetToolTip(_textBox, "Enter: Confirm | Esc: Cancel | Click away: Confirm if text entered");
-
-        _textBox.KeyDown += TextBox_KeyDown;
-        _textBox.LostFocus += TextBox_LostFocus;
-        _textBox.TextChanged += TextBox_TextChanged;
-
-        pictureBox.Controls.Add(_textBox);
-        _textBox.Focus();
-    }
-
-    private void TextBox_TextChanged(object? sender, EventArgs e)
-    {
-        if (_textBox == null) return;
-
-        var textSize = TextRenderer.MeasureText(_textBox.Text + "\n", _textBox.Font);
-        int newHeight = Math.Max(24, Math.Min(100, textSize.Height + 10));
-        int newWidth = Math.Max(200, Math.Min(400, textSize.Width + 20));
-
-        if (_textBox.Height != newHeight || _textBox.Width != newWidth)
-        {
-            _textBox.Height = newHeight;
-            _textBox.Width = newWidth;
-        }
-    }
-
-    private void TextBox_KeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.KeyCode == Keys.Enter && !e.Shift)
-        {
-            e.SuppressKeyPress = true;
-            e.Handled = true;
-            ConfirmTextAnnotation();
-        }
-        else if (e.KeyCode == Keys.Escape)
-        {
-            e.SuppressKeyPress = true;
-            e.Handled = true;
-
-            if (!string.IsNullOrWhiteSpace(_textBox?.Text))
-            {
-                if (MessageBox.Show("Discard the text for now?", "Confirm Cancel",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-                {
-                    CancelTextAnnotation();
-                }
-                else
-                {
-                    _textBox?.Focus();
-                }
-            }
-            else
-            {
-                CancelTextAnnotation();
-            }
-        }
-    }
-
-    private void TextBox_LostFocus(object? sender, EventArgs e)
-    {
-        if (_textBox == null) return;
-
-        if (string.IsNullOrWhiteSpace(_textBox.Text))
-        {
-            CancelTextAnnotation();
-        }
-        else
-        {
-            ConfirmTextAnnotation();
-        }
-    }
-
-    private void ConfirmTextAnnotation()
-    {
-        if (_textBox == null) return;
-
-        try
-        {
-            var textBox = _textBox;
-            _textBox = null;
-
-            if (!string.IsNullOrWhiteSpace(textBox.Text))
-            {
-                var annotation = new TextAnnotation(textBox.Location, _currentColor, textBox.Text);
-                _annotationService.AddAnnotation(annotation);
-                _annotationService.SelectAnnotation(annotation);
-            }
-
-            pictureBox.Controls.Remove(textBox);
-            textBox.Dispose();
-
-            pictureBox.Invalidate();
-
-            if (_currentImage != null)
-            {
-                CopyScreenshotWithAnnotationsToClipboard();
-            }
-
-            SetActiveTool(AnnotationTool.Select);
-            UpdateStatusBar();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Exception in ConfirmTextAnnotation: {ex.Message}");
-        }
-    }
-
-    private void CancelTextAnnotation()
-    {
-        if (_textBox == null) return;
-
-        var textBox = _textBox;
-        _textBox = null;
-
-        pictureBox.Controls.Remove(textBox);
-        textBox.Dispose();
-        pictureBox.Invalidate();
-
-        SetActiveTool(AnnotationTool.Select);
-    }
-
-    private void UpdateCursor()
-    {
-        if (_currentTool == AnnotationTool.Text)
-        {
-            pictureBox.Cursor = Cursors.IBeam;
-        }
-        else
-        {
-            pictureBox.Cursor = Cursors.Default;
-        }
-    }
-
-    private void FinishTextAnnotation()
-    {
-        if (_textBox == null) return;
-
-        try
-        {
-            var textBox = _textBox;
-            _textBox = null;
-
-            if (!string.IsNullOrWhiteSpace(textBox.Text))
-            {
-                var annotation = new TextAnnotation(textBox.Location, _currentColor, textBox.Text);
-                _annotationService.AddAnnotation(annotation);
-                _annotationService.SelectAnnotation(annotation);
-            }
-
-            pictureBox.Controls.Remove(textBox);
-            textBox.Dispose();
-
-            pictureBox.Invalidate();
-
-            if (_currentImage != null)
-            {
-                CopyScreenshotWithAnnotationsToClipboard();
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Exception in FinishTextAnnotation: {ex.Message}");
-        }
-    }
-
-    private void CancelTextInput()
-    {
-        if (_textBox != null)
-        {
-            pictureBox.Controls.Remove(_textBox);
-            _textBox.Dispose();
-            _textBox = null;
-            pictureBox.Invalidate();
-        }
     }
 
     private void MainForm_Load(object sender, EventArgs e)
