@@ -7,5 +7,6 @@ public enum AnnotationType
 {
     Rectangle,
     Highlight,
-    Text
+    Text,
+    Arrow
 }
