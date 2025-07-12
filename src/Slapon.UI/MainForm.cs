@@ -127,29 +127,29 @@ public partial class MainForm : Form
     private int animationStep = 0;
     private bool isDarkTheme = false;
 
-    // Color schemes
+    // Modern color schemes with updated palette to match the design aesthetic
     private readonly ModernColorScheme lightTheme = new ModernColorScheme
     {
-        Background = Color.FromArgb(248, 249, 250),
-        Surface = Color.White,
-        Primary = Color.FromArgb(0, 120, 215),
-        Secondary = Color.FromArgb(118, 118, 118),
-        Accent = Color.FromArgb(0, 103, 192),
-        Text = Color.FromArgb(50, 50, 50),
-        Border = Color.FromArgb(225, 225, 225),
-        Hover = Color.FromArgb(243, 244, 246)
+        Background = Color.FromArgb(250, 250, 252),      // Very light gray background
+        Surface = Color.FromArgb(255, 255, 255),         // Pure white surfaces
+        Primary = Color.FromArgb(59, 130, 246),          // Modern blue
+        Secondary = Color.FromArgb(107, 114, 128),       // Muted gray text
+        Accent = Color.FromArgb(59, 130, 246),           // Blue accent
+        Text = Color.FromArgb(17, 24, 39),               // Nearly black text
+        Border = Color.FromArgb(229, 231, 235),          // Light border
+        Hover = Color.FromArgb(243, 244, 246)            // Very light hover
     };
 
     private readonly ModernColorScheme darkTheme = new ModernColorScheme
     {
-        Background = Color.FromArgb(32, 32, 32),
-        Surface = Color.FromArgb(45, 45, 45),
-        Primary = Color.FromArgb(100, 181, 246),
-        Secondary = Color.FromArgb(158, 158, 158),
-        Accent = Color.FromArgb(66, 165, 245),
-        Text = Color.FromArgb(240, 240, 240),
-        Border = Color.FromArgb(66, 66, 66),
-        Hover = Color.FromArgb(55, 55, 55)
+        Background = Color.FromArgb(15, 23, 42),         // Dark slate
+        Surface = Color.FromArgb(30, 41, 59),            // Dark surface
+        Primary = Color.FromArgb(96, 165, 250),          // Lighter blue for dark mode
+        Secondary = Color.FromArgb(148, 163, 184),       // Light gray text
+        Accent = Color.FromArgb(96, 165, 250),           // Blue accent
+        Text = Color.FromArgb(241, 245, 249),            // Light text
+        Border = Color.FromArgb(51, 65, 85),             // Dark border
+        Hover = Color.FromArgb(51, 65, 85)               // Dark hover
     };
 
     private ModernColorScheme CurrentTheme => isDarkTheme ? darkTheme : lightTheme;
@@ -181,26 +181,56 @@ public partial class MainForm : Form
 
     private void ApplyModernStyling()
     {
-        // Apply modern form styling
+        // Apply modern form styling with clean background
         this.BackColor = CurrentTheme.Background;
         this.StartPosition = FormStartPosition.CenterScreen;
-        this.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+        this.Font = CreateModernFont(9F);
         
         // Enable modern visual effects
         SetStyle(ControlStyles.AllPaintingInWmPaint | 
                  ControlStyles.UserPaint | 
                  ControlStyles.DoubleBuffer | 
                  ControlStyles.ResizeRedraw, true);
+                 
+        // Modern window styling
+        this.FormBorderStyle = FormBorderStyle.Sizable;
+        this.MinimumSize = new Size(800, 600);
     }
 
     private void SetupModernUI()
     {
-        // Initialize animation timer
+        // Initialize animation timer for smooth transitions
         animationTimer = new Timer { Interval = 16 }; // ~60 FPS
         animationTimer.Tick += AnimationTimer_Tick;
+        animationTimer.Start();
 
         // Create modern status bar
         CreateModernStatusBar();
+        
+        // Setup modern panel styling
+        SetupModernPanels();
+    }
+
+    private void SetupModernPanels()
+    {
+        // Apply modern styling to the main panel
+        if (panel != null)
+        {
+            panel.BackColor = CurrentTheme.Background;
+            panel.Padding = new Padding(20);
+            
+            // Add subtle inner shadow effect
+            panel.Paint += (s, e) =>
+            {
+                var rect = panel.ClientRectangle;
+                using var brush = new LinearGradientBrush(
+                    rect, 
+                    Color.FromArgb(5, 0, 0, 0), 
+                    Color.Transparent, 
+                    LinearGradientMode.Vertical);
+                e.Graphics.FillRectangle(brush, new Rectangle(0, 0, rect.Width, 10));
+            };
+        }
     }
 
     private void CreateModernStatusBar()
@@ -209,31 +239,42 @@ public partial class MainForm : Form
         {
             BackColor = CurrentTheme.Surface,
             ForeColor = CurrentTheme.Text,
-            Font = new Font("Segoe UI", 9F),
-            Renderer = new ModernStatusStripRenderer(CurrentTheme)
+            Font = CreateModernFont(8.5F),
+            Renderer = new ModernStatusStripRenderer(CurrentTheme),
+            Height = 32,
+            Padding = new Padding(16, 4, 16, 4)
         };
 
         statusLabel = new ToolStripStatusLabel
         {
             Text = "Ready",
-            Font = new Font("Segoe UI", 9F),
-            ForeColor = CurrentTheme.Text
+            Font = CreateModernFont(8.5F),
+            ForeColor = CurrentTheme.Secondary,
+            Margin = new Padding(0, 0, 16, 0)
         };
 
         toolLabel = new ToolStripStatusLabel
         {
             Text = "Tool: Select",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = CurrentTheme.Primary
+            Font = CreateModernFont(8.5F, FontStyle.Bold),
+            ForeColor = CurrentTheme.Text,
+            Margin = new Padding(0, 0, 16, 0)
         };
 
         imageInfoLabel = new ToolStripStatusLabel
         {
             Text = "No image loaded",
-            Font = new Font("Segoe UI", 9F),
+            Font = CreateModernFont(8.5F),
             ForeColor = CurrentTheme.Secondary,
             Spring = true,
             TextAlign = ContentAlignment.MiddleRight
+        };
+
+        // Add subtle separator line
+        statusStrip.Paint += (s, e) =>
+        {
+            using var pen = new Pen(CurrentTheme.Border, 1);
+            e.Graphics.DrawLine(pen, 0, 0, statusStrip.Width, 0);
         };
 
         statusStrip.Items.AddRange(new ToolStripItem[] { statusLabel, toolLabel, imageInfoLabel });
@@ -489,10 +530,10 @@ public partial class MainForm : Form
         GripStyle = ToolStripGripStyle.Hidden,
         BackColor = CurrentTheme.Surface,
         ForeColor = CurrentTheme.Text,
-        Padding = new Padding(12, 8, 12, 8),
-        Height = 56,
+        Padding = new Padding(16, 12, 16, 12),          // More generous padding
+        Height = 64,                                     // Taller for modern feel
         Dock = DockStyle.Top,
-        Font = new Font("Segoe UI", 9F)
+        Font = CreateModernFont(9F)                     // Modern font with fallback
     };
 
     private ToolStripSeparator CreateModernSeparator() => new()
@@ -503,9 +544,18 @@ public partial class MainForm : Form
 
     private IEnumerable<ToolStripItem> CreateDrawingTools()
     {
+        // Capture group with modern styling
+        var captureGroup = CreateToolGroup();
+        yield return captureGroup;
+        
         yield return CreateModernButton("New Capture", Resources.newcapture, StartScreenCapture, "Ctrl+N");
         
-        // Add Undo/Redo buttons with proper references
+        yield return CreateGroupSeparator();
+        
+        // Undo/Redo group
+        var historyGroup = CreateToolGroup();
+        yield return historyGroup;
+        
         undoButton = CreateModernButton("", Resources.undo, (s, e) =>
         {
             if (_annotationService.CanUndo)
@@ -528,16 +578,18 @@ public partial class MainForm : Form
 
         yield return undoButton;
         yield return redoButton;
+        
+        yield return CreateGroupSeparator();
 
-        // Add a separator between undo/redo and drawing tools
-        yield return CreateModernSeparator();
+        // Drawing tools group
+        var drawingGroup = CreateToolGroup();
+        yield return drawingGroup;
 
-        // Initialize and store tool buttons as class fields
         btnRectangleTool = CreateModernButton("", Resources.rectangle, (s, e) => SetActiveTool(AnnotationTool.Rectangle), "R");
         btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight), "H");
         lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line), "L");
         textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text), "T");
-        arrowButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Arrow), "A"); // Using line icon for now
+        arrowButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Arrow), "A");
         selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select), "S");
 
         yield return btnRectangleTool;
@@ -546,6 +598,28 @@ public partial class MainForm : Form
         yield return textButton;
         yield return arrowButton;
         yield return selectButton;
+    }
+
+    private ToolStripLabel CreateToolGroup()
+    {
+        return new ToolStripLabel
+        {
+            Text = "",
+            Width = 0,
+            Margin = new Padding(0),
+            BackColor = Color.Transparent
+        };
+    }
+
+    private ToolStripSeparator CreateGroupSeparator()
+    {
+        return new ToolStripSeparator
+        {
+            Width = 1,
+            Margin = new Padding(8, 4, 8, 4),
+            ForeColor = CurrentTheme.Border,
+            BackColor = CurrentTheme.Border
+        };
     }
 
     // Add these as class fields
@@ -569,13 +643,19 @@ public partial class MainForm : Form
 
     private IEnumerable<ToolStripItem> CreateColorTools()
     {
+        // Modern color palette inspired by the reference design
         var colors = new[]
         {
-            Color.FromArgb(220, 53, 69),   // Modern Red
-            Color.FromArgb(25, 135, 84),   // Modern Green
-            Color.FromArgb(13, 110, 253),  // Modern Blue
-            Color.FromArgb(255, 193, 7),   // Modern Yellow
-            Color.FromArgb(214, 51, 132)   // Modern Pink
+            Color.FromArgb(15, 23, 42),      // Slate 900 (dark)
+            Color.FromArgb(148, 163, 184),   // Slate 400 (gray)
+            Color.FromArgb(239, 68, 68),     // Red 500
+            Color.FromArgb(249, 115, 22),    // Orange 500
+            Color.FromArgb(245, 158, 11),    // Amber 500
+            Color.FromArgb(132, 204, 22),    // Lime 500
+            Color.FromArgb(34, 197, 94),     // Green 500
+            Color.FromArgb(59, 130, 246),    // Blue 500
+            Color.FromArgb(147, 51, 234),    // Purple 500
+            Color.FromArgb(236, 72, 153)     // Pink 500
         };
 
         foreach (var color in colors)
@@ -595,30 +675,53 @@ public partial class MainForm : Form
             Image = Resources.colorIcon,
             DisplayStyle = ToolStripItemDisplayStyle.Image,
             AutoSize = false,
-            Size = new Size(32, 32),
-            Margin = new Padding(4),
-            ToolTipText = "Custom Color Picker"
+            Size = new Size(36, 32),
+            Margin = new Padding(4, 2, 4, 2),
+            ToolTipText = "Custom Color Picker",
+            BackColor = Color.Transparent
         };
+        
+        // Apply same modern styling as other buttons
+        button.Paint += (s, e) =>
+        {
+            if (s is ToolStripButton btn)
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                
+                var rect = new Rectangle(2, 2, btn.Width - 4, btn.Height - 4);
+                var radius = 8; // Rounded rectangle for utility buttons
+
+                // Shadow
+                var shadowRect = new Rectangle(rect.X + 1, rect.Y + 2, rect.Width, rect.Height);
+                using (var shadowPath = CreateRoundedRectangle(shadowRect, radius))
+                using (var shadowBrush = new SolidBrush(Color.FromArgb(15, 0, 0, 0)))
+                {
+                    e.Graphics.FillPath(shadowBrush, shadowPath);
+                }
+
+                // Background
+                using var path = CreateRoundedRectangle(rect, radius);
+                using var brush = new SolidBrush(CurrentTheme.Surface);
+                e.Graphics.FillPath(brush, path);
+
+                // Border
+                using var borderPen = new Pen(CurrentTheme.Border, 1);
+                e.Graphics.DrawPath(borderPen, path);
+
+                // Icon
+                if (btn.Image != null)
+                {
+                    var iconRect = new Rectangle(
+                        rect.X + (rect.Width - 16) / 2,
+                        rect.Y + (rect.Height - 16) / 2,
+                        16, 16);
+                    e.Graphics.DrawImage(btn.Image, iconRect);
+                }
+            }
+        };
+        
         button.Click += ChangeColor;
         return button;
-    }
-
-    private IEnumerable<ToolStripItem> CreateUtilityTools()
-    {
-        yield return CreateModernSeparator();
-
-        rotateButton = CreateModernButton("", Resources.rotate, RotateImage, "");
-        rotateButton.ToolTipText = "Rotate Image 90°";
-        yield return rotateButton;
-
-        yield return CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations(), "");
-        
-        ocrButton = CreateModernButton("", Resources.ocr, async (s, e) => await PerformOcr(), "");
-        ocrButton.ToolTipText = "Extract Text (OCR)";
-        yield return ocrButton;
-        
-        yield return CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard(), "Ctrl+C");
-        yield return CreateModernButton("Save", null, SaveImage, "Ctrl+S");
     }
 
     private void SetupEventHandlers()
@@ -654,8 +757,8 @@ public partial class MainForm : Form
         {
             DisplayStyle = ToolStripItemDisplayStyle.None,
             AutoSize = false,
-            Size = new Size(28, 28),
-            Margin = new Padding(2),
+            Size = new Size(32, 32),                    // Slightly larger for better touch targets
+            Margin = new Padding(3, 2, 3, 2),
             BackColor = Color.Transparent,
             Tag = "color",
             ToolTipText = $"Color: {color.Name}"
@@ -667,22 +770,40 @@ public partial class MainForm : Form
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-                var rect = new Rectangle(2, 2, btn.Width - 4, btn.Height - 4);
-                var radius = 6;
+                var rect = new Rectangle(4, 4, btn.Width - 8, btn.Height - 8);
+                var radius = rect.Width / 2; // Perfect circle
 
-                // Draw rounded rectangle with color
-                using (var brush = new SolidBrush(color))
-                using (var path = CreateRoundedRectangle(rect, radius))
+                // Shadow effect
+                var shadowRect = new Rectangle(rect.X + 1, rect.Y + 2, rect.Width, rect.Height);
+                using (var shadowPath = CreateRoundedRectangle(shadowRect, radius))
+                using (var shadowBrush = new SolidBrush(Color.FromArgb(25, 0, 0, 0)))
                 {
-                    e.Graphics.FillPath(brush, path);
+                    e.Graphics.FillPath(shadowBrush, shadowPath);
                 }
 
-                // Draw selection indicator if this is the current color
+                // Main color circle
+                using var path = CreateRoundedRectangle(rect, radius);
+                using var brush = new SolidBrush(color);
+                e.Graphics.FillPath(brush, path);
+
+                // Border
+                var borderColor = _currentColor == color ? CurrentTheme.Primary : CurrentTheme.Border;
+                var borderWidth = _currentColor == color ? 2 : 1;
+                using var borderPen = new Pen(borderColor, borderWidth);
+                e.Graphics.DrawPath(borderPen, path);
+
+                // Selection indicator
                 if (_currentColor == color)
                 {
-                    using var pen = new Pen(CurrentTheme.Primary, 2);
-                    using var selectionPath = CreateRoundedRectangle(new Rectangle(0, 0, btn.Width - 1, btn.Height - 1), radius + 2);
-                    e.Graphics.DrawPath(pen, selectionPath);
+                    var indicatorSize = 8;
+                    var indicatorRect = new Rectangle(
+                        rect.X + (rect.Width - indicatorSize) / 2,
+                        rect.Y + (rect.Height - indicatorSize) / 2,
+                        indicatorSize, indicatorSize);
+                    
+                    using var indicatorPath = CreateRoundedRectangle(indicatorRect, indicatorSize / 2);
+                    using var indicatorBrush = new SolidBrush(GetContrastColor(color));
+                    e.Graphics.FillPath(indicatorBrush, indicatorPath);
                 }
             }
         };
@@ -695,6 +816,12 @@ public partial class MainForm : Form
         };
 
         return button;
+    }
+
+    private Color GetContrastColor(Color color)
+    {
+        var brightness = (color.R * 299 + color.G * 587 + color.B * 114) / 1000;
+        return brightness > 128 ? Color.FromArgb(60, 60, 60) : Color.FromArgb(240, 240, 240);
     }
 
     private GraphicsPath CreateRoundedRectangle(Rectangle rect, int radius)
@@ -723,7 +850,7 @@ public partial class MainForm : Form
         }
     }
 
-    // Enhanced CreateModernButton method with keyboard shortcuts
+    // Enhanced CreateModernButton method with pill-shaped design
     private ToolStripButton CreateModernButton(string text, Image? icon, EventHandler clickHandler, string shortcut = "")
     {
         var button = new ToolStripButton
@@ -732,12 +859,12 @@ public partial class MainForm : Form
             DisplayStyle = icon != null && text != "" ? ToolStripItemDisplayStyle.ImageAndText :
                           icon != null ? ToolStripItemDisplayStyle.Image :
                           ToolStripItemDisplayStyle.Text,
-            AutoSize = true,
-            Margin = new Padding(4),
-            Padding = new Padding(10, 8, 10, 8),
+            AutoSize = false,
+            Size = new Size(40, 40),                    // Square buttons for tools
+            Margin = new Padding(4, 2, 4, 2),          // Tighter spacing
             ForeColor = CurrentTheme.Text,
-            Font = new Font("Segoe UI", 9F),
-            BackColor = CurrentTheme.Surface
+            Font = CreateModernFont(8F, FontStyle.Regular),
+            BackColor = Color.Transparent
         };
 
         if (icon != null)
@@ -746,13 +873,93 @@ public partial class MainForm : Form
             var resizedImage = new Bitmap(icon, size);
             button.Image = resizedImage;
             button.ImageAlign = ContentAlignment.MiddleCenter;
-            button.TextImageRelation = TextImageRelation.ImageBeforeText;
             button.ImageScaling = ToolStripItemImageScaling.None;
             button.ImageTransparentColor = Color.Transparent;
         }
 
+        // Custom paint for pill-shaped buttons with shadows
+        button.Paint += (s, e) =>
+        {
+            if (s is ToolStripButton btn)
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+                var rect = new Rectangle(2, 2, btn.Width - 4, btn.Height - 4);
+                var radius = Math.Min(rect.Width, rect.Height) / 2; // Perfect circle/pill
+
+                // Create shadow effect
+                var shadowRect = new Rectangle(rect.X + 1, rect.Y + 2, rect.Width, rect.Height);
+                using (var shadowPath = CreateRoundedRectangle(shadowRect, radius))
+                using (var shadowBrush = new SolidBrush(Color.FromArgb(20, 0, 0, 0)))
+                {
+                    e.Graphics.FillPath(shadowBrush, shadowPath);
+                }
+
+                // Main button background
+                using var path = CreateRoundedRectangle(rect, radius);
+                
+                Color bgColor = btn.Checked ? CurrentTheme.Primary : CurrentTheme.Surface;
+                Color textColor = btn.Checked ? Color.White : CurrentTheme.Text;
+                
+                // Gradient for depth
+                using var brush = new LinearGradientBrush(rect, 
+                    btn.Checked ? Color.FromArgb(Math.Min(255, CurrentTheme.Primary.R + 10), 
+                                                 Math.Min(255, CurrentTheme.Primary.G + 10), 
+                                                 Math.Min(255, CurrentTheme.Primary.B + 10)) : CurrentTheme.Surface,
+                    btn.Checked ? Color.FromArgb(Math.Max(0, CurrentTheme.Primary.R - 10), 
+                                                 Math.Max(0, CurrentTheme.Primary.G - 10), 
+                                                 Math.Max(0, CurrentTheme.Primary.B - 10)) : Color.FromArgb(248, 250, 252),
+                    LinearGradientMode.Vertical);
+                
+                e.Graphics.FillPath(brush, path);
+
+                // Border
+                using var borderPen = new Pen(btn.Checked ? CurrentTheme.Primary : CurrentTheme.Border, 1);
+                e.Graphics.DrawPath(borderPen, path);
+
+                // Icon and text
+                if (btn.Image != null)
+                {
+                    var iconRect = new Rectangle(
+                        rect.X + (rect.Width - btn.Image.Width) / 2,
+                        rect.Y + (rect.Height - btn.Image.Height) / 2,
+                        btn.Image.Width,
+                        btn.Image.Height);
+                    
+                    // Tint icon if checked
+                    if (btn.Checked)
+                    {
+                        using var ia = new ImageAttributes();
+                        var colorMatrix = new ColorMatrix(new float[][]
+                        {
+                            new float[] {1, 1, 1, 0, 0},
+                            new float[] {1, 1, 1, 0, 0},
+                            new float[] {1, 1, 1, 0, 0},
+                            new float[] {0, 0, 0, 1, 0},
+                            new float[] {1, 1, 1, 0, 1}
+                        });
+                        ia.SetColorMatrix(colorMatrix);
+                        e.Graphics.DrawImage(btn.Image, iconRect, 0, 0, btn.Image.Width, btn.Image.Height, GraphicsUnit.Pixel, ia);
+                    }
+                    else
+                    {
+                        e.Graphics.DrawImage(btn.Image, iconRect);
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(btn.Text) && btn.DisplayStyle != ToolStripItemDisplayStyle.Image)
+                {
+                    using var textBrush = new SolidBrush(textColor);
+                    var textRect = new RectangleF(rect.X, rect.Y + rect.Height + 2, rect.Width, 20);
+                    var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                    e.Graphics.DrawString(btn.Text, btn.Font, textBrush, textRect, sf);
+                }
+            }
+        };
+
         // Enhanced tooltip with keyboard shortcut
-        var tooltipText = text;
+        var tooltipText = string.IsNullOrEmpty(text) ? GetToolName(shortcut) : text;
         if (!string.IsNullOrEmpty(shortcut))
         {
             tooltipText += $" ({shortcut})";
@@ -761,6 +968,20 @@ public partial class MainForm : Form
 
         button.Click += clickHandler;
         return button;
+    }
+
+    private string GetToolName(string shortcut)
+    {
+        return shortcut switch
+        {
+            "R" => "Rectangle",
+            "H" => "Highlight", 
+            "L" => "Line",
+            "T" => "Text",
+            "A" => "Arrow",
+            "S" => "Select",
+            _ => ""
+        };
     }
 
     private void SetActiveTool(AnnotationTool tool)
@@ -1030,7 +1251,7 @@ public partial class MainForm : Form
         {
             Text = text,
             DisplayStyle = ToolStripItemDisplayStyle.Text,
-            Font = new Font("Segoe UI", 8, FontStyle.Regular),
+            Font = CreateModernFont(8F, FontStyle.Regular),
             Padding = new Padding(8, 0, 8, 0),
             AutoSize = true,
             ForeColor = CurrentTheme.Text,
@@ -1417,7 +1638,7 @@ public partial class MainForm : Form
     private void ShowModernTextEditor(Point location, TextAnnotation? existingAnnotation = null)
     {
         var initialText = existingAnnotation?.Text ?? "";
-        var initialFont = existingAnnotation?.Font ?? new Font("Segoe UI", 12, FontStyle.Regular);
+        var initialFont = existingAnnotation?.Font ?? CreateModernFont(12F, FontStyle.Regular);
         var initialColor = existingAnnotation?.Color ?? _currentColor;
         var initialStyle = existingAnnotation?.Style ?? new TextStyle();
 
@@ -1621,7 +1842,7 @@ public partial class MainForm : Form
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.BackColor = Color.FromArgb(248, 249, 250);
-            this.Font = new Font("Segoe UI", 9F);
+            this.Font = CreateModernFont(9F);
 
             var colorWheel = new Panel
             {
@@ -1642,7 +1863,7 @@ public partial class MainForm : Form
                 BackColor = Color.FromArgb(0, 120, 215),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9F)
+                Font = CreateModernFont(9F)
             };
 
             var cancelButton = new Button
@@ -1654,7 +1875,7 @@ public partial class MainForm : Form
                 BackColor = Color.FromArgb(225, 225, 225),
                 ForeColor = Color.FromArgb(50, 50, 50),
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9F)
+                Font = CreateModernFont(9F)
             };
 
             this.Controls.AddRange(new Control[] { colorWheel, okButton, cancelButton });
@@ -1777,8 +1998,8 @@ public partial class MainForm : Form
     // Modern OCR Result Form
     public class ModernOcrResultForm : Form
     {
-        private TextBox textBoxResult;
-        private Button buttonCopy;
+        private TextBox textBoxResult = null!;
+        private Button buttonCopy = null!;
 
         public ModernOcrResultForm()
         {
@@ -1794,7 +2015,7 @@ public partial class MainForm : Form
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
             Text = "OCR Result";
-            Font = new Font("Segoe UI", 9F);
+            Font = CreateModernFont(9F);
 
             textBoxResult = new TextBox
             {
@@ -1802,7 +2023,7 @@ public partial class MainForm : Form
                 ScrollBars = ScrollBars.Vertical,
                 Dock = DockStyle.Fill,
                 Margin = new Padding(16),
-                Font = new Font("Segoe UI", 10F),
+                Font = CreateModernFont(10F),
                 BackColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle
             };
@@ -1815,7 +2036,7 @@ public partial class MainForm : Form
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(0, 120, 215),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                Font = CreateModernFont(9F, FontStyle.Bold)
             };
 
             buttonCopy.Click += ButtonCopy_Click;
@@ -1824,7 +2045,7 @@ public partial class MainForm : Form
             Controls.Add(buttonCopy);
         }
 
-        private void ButtonCopy_Click(object sender, EventArgs e)
+        private void ButtonCopy_Click(object? sender, EventArgs e)
         {
             if (!string.IsNullOrEmpty(textBoxResult.Text))
             {
@@ -1837,5 +2058,50 @@ public partial class MainForm : Form
         {
             textBoxResult.Text = text;
         }
+    }
+
+    private static Font CreateModernFont(float size, FontStyle style = FontStyle.Regular)
+    {
+        // Try modern fonts in order of preference
+        var fontNames = new[] { "Inter", "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", "Arial" };
+        
+        foreach (var fontName in fontNames)
+        {
+            try
+            {
+                var font = new Font(fontName, size, style);
+                if (font.Name.Equals(fontName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return font;
+                }
+                font.Dispose();
+            }
+            catch
+            {
+                // Continue to next font
+            }
+        }
+        
+        // Fallback to system default
+        return new Font(FontFamily.GenericSansSerif, size, style);
+    }
+
+    private IEnumerable<ToolStripItem> CreateUtilityTools()
+    {
+        yield return CreateGroupSeparator();
+
+        // Utility tools group
+        rotateButton = CreateModernButton("", Resources.rotate, RotateImage, "");
+        rotateButton.ToolTipText = "Rotate Image 90°";
+        yield return rotateButton;
+
+        yield return CreateModernButton("", Resources.clearall, (s, e) => ClearAllAnnotations(), "");
+        
+        ocrButton = CreateModernButton("", Resources.ocr, async (s, e) => await PerformOcr(), "");
+        ocrButton.ToolTipText = "Extract Text (OCR)";
+        yield return ocrButton;
+        
+        yield return CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard(), "Ctrl+C");
+        yield return CreateModernButton("Save", null, SaveImage, "Ctrl+S");
     }
 }
