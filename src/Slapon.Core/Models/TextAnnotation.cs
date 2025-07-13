@@ -217,29 +217,3 @@ public class TextAnnotation : BaseAnnotation
         };
     }
 }
-
-public class TextStyle
-{
-    public bool HasBackground { get; set; } = false;
-    public Color BackgroundColor { get; set; } = Color.FromArgb(240, 255, 255, 255);
-    public bool BackgroundRoundedCorners { get; set; } = true;
-    public int CornerRadius { get; set; } = 4;
-    public int BackgroundPadding { get; set; } = 4;
-    
-    public bool HasBorder { get; set; } = false;
-    public Color BorderColor { get; set; } = Color.FromArgb(200, 200, 200);
-    public float BorderWidth { get; set; } = 1f;
-    
-    public bool HasShadow { get; set; } = false;
-    public Color ShadowColor { get; set; } = Color.FromArgb(100, 0, 0, 0);
-    public Point ShadowOffset { get; set; } = new Point(1, 1);
-    
-    public TextAlign Alignment { get; set; } = TextAlign.Left;
-}
-
-public enum TextAlign
-{
-    Left,
-    Center,
-    Right
-}
