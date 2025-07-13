@@ -19,6 +19,9 @@ public class HighlightAnnotation : BaseAnnotation
         {
             g.FillRectangle(highlightBrush, Bounds);
         }
+
+        // Draw selection indicators if selected
+        DrawSelectionIndicators(g);
     }
 
     public override bool Contains(PointF point)

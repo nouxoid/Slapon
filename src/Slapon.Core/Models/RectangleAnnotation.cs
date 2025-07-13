@@ -25,6 +25,9 @@ public class RectangleAnnotation : BaseAnnotation
         {
             g.DrawRectangle(pen, Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height);
         }
+
+        // Draw selection indicators if selected (using base class method for consistency)
+        DrawSelectionIndicators(g);
     }
 
     public override bool Contains(PointF point)
