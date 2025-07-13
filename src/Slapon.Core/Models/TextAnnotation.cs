@@ -120,7 +120,7 @@ public class TextAnnotation : BaseAnnotation
         }
     }
 
-    private void DrawResizeHandles(Graphics g, Rectangle bounds)
+    private new void DrawResizeHandles(Graphics g, Rectangle bounds)
     {
         const int handleSize = 6;
         var handleColor = Color.FromArgb(100, 181, 246);

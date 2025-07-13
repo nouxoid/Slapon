@@ -52,7 +52,7 @@ public class BlurAnnotation : BaseAnnotation
         g.DrawRectangle(borderPen, blurRect);
     }
 
-    private void DrawSelectionIndicators(Graphics g)
+    private new void DrawSelectionIndicators(Graphics g)
     {
         // Selection border
         using var selectionPen = new Pen(Color.FromArgb(100, 181, 246), 1f) { DashStyle = DashStyle.Dash };
@@ -64,7 +64,7 @@ public class BlurAnnotation : BaseAnnotation
         DrawResizeHandles(g, selectionRect);
     }
 
-    private void DrawResizeHandles(Graphics g, Rectangle bounds)
+    private new void DrawResizeHandles(Graphics g, Rectangle bounds)
     {
         const int handleSize = 8;
         var handleColor = Color.FromArgb(100, 181, 246);

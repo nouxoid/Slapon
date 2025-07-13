@@ -49,6 +49,9 @@ public class ArrowAnnotation : BaseAnnotation
         g.DrawLine(pen, _start, _end);
         
         arrowHead.Dispose();
+
+        // Draw selection indicators if selected (using base class method for consistency)
+        DrawLineSelectionIndicators(g, _start, _end);
     }
 
     public override bool Contains(PointF point)

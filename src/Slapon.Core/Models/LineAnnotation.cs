@@ -33,6 +33,9 @@ public class LineAnnotation : BaseAnnotation
     {
         using var pen = new Pen(GetTransparentColor(), LineThickness);
         g.DrawLine(pen, _start, _end);
+
+        // Draw selection indicators if selected (using base class method for consistency)
+        DrawLineSelectionIndicators(g, _start, _end);
     }
 
     public override bool Contains(PointF point)

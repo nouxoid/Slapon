@@ -4,8 +4,6 @@ using Slapon.Core.Interfaces;
 using Slapon.Core.Models;
 using Slapon.Core.Services;
 using System.Drawing.Imaging;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 
 namespace Slapon.Core.Models;
 
@@ -67,6 +65,87 @@ public abstract class BaseAnnotation : IAnnotation
         );
     }
 
+    /// <summary>
+    /// Draws selection indicators around the annotation when it's selected
+    /// </summary>
+    protected virtual void DrawSelectionIndicators(Graphics g)
+    {
+        if (!IsSelected) return;
 
+        // Selection border - make it more visually distinct by inflating more and using a thicker line
+        using var selectionPen = new Pen(Color.FromArgb(100, 181, 246), 2f) { DashStyle = DashStyle.Dash };
+        var selectionRect = Rectangle.Round(Bounds);
+        selectionRect.Inflate(6, 6); // Increased from 4 to 6 for better visibility
+        g.DrawRectangle(selectionPen, selectionRect);
 
+        // Resize handles
+        DrawResizeHandles(g, selectionRect);
+    }
+
+    /// <summary>
+    /// Draws resize handles at the corners of the selection rectangle
+    /// </summary>
+    protected virtual void DrawResizeHandles(Graphics g, Rectangle bounds)
+    {
+        const int handleSize = 8; // Increased from 6 to 8 for better visibility
+        var handleColor = Color.FromArgb(100, 181, 246);
+        
+        using var brush = new SolidBrush(handleColor);
+        using var pen = new Pen(Color.White, 1);
+
+        var handles = new[]
+        {
+            new Point(bounds.Left - handleSize/2, bounds.Top - handleSize/2),
+            new Point(bounds.Right - handleSize/2, bounds.Top - handleSize/2),
+            new Point(bounds.Right - handleSize/2, bounds.Bottom - handleSize/2),
+            new Point(bounds.Left - handleSize/2, bounds.Bottom - handleSize/2)
+        };
+
+        foreach (var handle in handles)
+        {
+            var handleRect = new Rectangle(handle, new Size(handleSize, handleSize));
+            g.FillEllipse(brush, handleRect);
+            g.DrawEllipse(pen, handleRect);
+        }
+    }
+
+    /// <summary>
+    /// Draws selection indicators for line-based annotations (lines and arrows)
+    /// </summary>
+    protected virtual void DrawLineSelectionIndicators(Graphics g, Point start, Point end)
+    {
+        if (!IsSelected) return;
+
+        // Draw a wider selection outline around the line for better visibility
+        using var selectionPen = new Pen(Color.FromArgb(100, 181, 246), 5f) { DashStyle = DashStyle.Dash };
+        g.DrawLine(selectionPen, start, end);
+
+        // End point handles - make them larger and more visible
+        DrawLineEndHandles(g, start, end);
+    }
+
+    /// <summary>
+    /// Draws handles at the start and end points of a line
+    /// </summary>
+    protected virtual void DrawLineEndHandles(Graphics g, Point start, Point end)
+    {
+        const int handleSize = 10; // Increased from 8 to 10 for better visibility
+        var handleColor = Color.FromArgb(100, 181, 246);
+        
+        using var brush = new SolidBrush(handleColor);
+        using var pen = new Pen(Color.White, 1);
+
+        var handles = new[] { start, end };
+
+        foreach (var handle in handles)
+        {
+            var handleRect = new Rectangle(
+                handle.X - handleSize/2, 
+                handle.Y - handleSize/2, 
+                handleSize, 
+                handleSize);
+            g.FillEllipse(brush, handleRect);
+            g.DrawEllipse(pen, handleRect);
+        }
+    }
 }
