@@ -9,12 +9,13 @@ namespace Slapon.Core.Models;
 
 public abstract class BaseAnnotation : IAnnotation
 {
-    protected BaseAnnotation(RectangleF bounds, Color color, float opacity)
+    protected BaseAnnotation(RectangleF bounds, Color color, float opacity, float thickness = 2.0f)
     {
         Id = Guid.NewGuid();
         Bounds = bounds;
         Color = color;
         Opacity = opacity;
+        Thickness = thickness;
         IsSelected = false;
     }
 
@@ -22,6 +23,7 @@ public abstract class BaseAnnotation : IAnnotation
     public RectangleF Bounds { get; protected set; }
     public Color Color { get; protected set; }
     public float Opacity { get; protected set; }
+    public float Thickness { get; set; }
     public bool IsSelected { get; set; }
 
     public abstract bool Contains(Point point);

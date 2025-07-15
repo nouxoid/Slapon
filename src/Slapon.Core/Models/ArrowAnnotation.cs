@@ -10,11 +10,10 @@ public class ArrowAnnotation : BaseAnnotation
     private readonly Point _originalEnd;
     private Point _start;
     private Point _end;
-    public float LineThickness { get; set; } = 3f;
     public float ArrowHeadSize { get; set; } = 12f;
 
-    public ArrowAnnotation(Point start, Point end, Color color)
-        : base(GetBounds(start, end), color, 1.0f)
+    public ArrowAnnotation(Point start, Point end, Color color, float thickness = 3f)
+        : base(GetBounds(start, end), color, 1.0f, thickness)
     {
         _originalStart = start;
         _originalEnd = end;
@@ -38,7 +37,7 @@ public class ArrowAnnotation : BaseAnnotation
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         
-        using var pen = new Pen(GetTransparentColor(), LineThickness);
+        using var pen = new Pen(GetTransparentColor(), Thickness);
         pen.EndCap = LineCap.Custom;
         
         // Create arrow head
@@ -58,7 +57,7 @@ public class ArrowAnnotation : BaseAnnotation
     {
         // Create a slightly wider hit area for the arrow
         var inflatedBounds = Bounds;
-        inflatedBounds.Inflate(LineThickness * 2, LineThickness * 2);
+        inflatedBounds.Inflate(Thickness * 2, Thickness * 2);
         return inflatedBounds.Contains(point);
     }
 
@@ -69,9 +68,8 @@ public class ArrowAnnotation : BaseAnnotation
 
     public override IAnnotation Clone()
     {
-        return new ArrowAnnotation(_start, _end, Color)
+        return new ArrowAnnotation(_start, _end, Color, Thickness)
         {
-            LineThickness = LineThickness,
             ArrowHeadSize = ArrowHeadSize,
             IsSelected = IsSelected
         };
@@ -89,7 +87,7 @@ public class ArrowAnnotation : BaseAnnotation
         // Create a path for the arrow line with wider hit area
         using var path = new GraphicsPath();
         path.AddLine(_start, _end);
-        using var pen = new Pen(Color.Black, LineThickness * 3); // Wider hit area for easier selection
+        using var pen = new Pen(Color.Black, Thickness * 3); // Wider hit area for easier selection
         return path.IsOutlineVisible(point, pen);
     }
 
@@ -98,7 +96,7 @@ public class ArrowAnnotation : BaseAnnotation
         _start = new Point((int)(_originalStart.X * scaleX), (int)(_originalStart.Y * scaleY));
         _end = new Point((int)(_originalEnd.X * scaleX), (int)(_originalEnd.Y * scaleY));
         Bounds = GetBounds(_start, _end);
-        LineThickness *= Math.Min(scaleX, scaleY);
+        Thickness *= Math.Min(scaleX, scaleY);
         ArrowHeadSize *= Math.Min(scaleX, scaleY);
     }
 }

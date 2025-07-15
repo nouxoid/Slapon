@@ -100,6 +100,7 @@ public partial class MainForm : Form
     private PointF _startPoint;
     private bool _isDrawing = false;
     private Color _currentColor = Color.Red;
+    private float _currentThickness = 2.0f;
     private AnnotationType _currentType = AnnotationType.Rectangle;
     private bool _isDragging = false;
     private PictureBox pictureBox;
@@ -174,6 +175,7 @@ public partial class MainForm : Form
             pictureBox.Invalidate();
             UpdateUndoRedoState();
             UpdateStatusBar();
+            UpdateThicknessControls();
         };
         
         // Subscribe to annotation added event for automatic tool switching
@@ -331,8 +333,9 @@ public partial class MainForm : Form
     {
         if (statusLabel == null || toolLabel == null || imageInfoLabel == null) return;
 
-        // Update tool information
-        toolLabel.Text = $"Tool: {_currentTool}";
+        // Update tool information with thickness
+        var thicknessInfo = _currentTool == AnnotationTool.Text ? "size" : "thickness";
+        toolLabel.Text = $"Tool: {_currentTool} | {thicknessInfo}: {_currentThickness:F1}";
         
         // Update image information
         if (_currentImage != null)
@@ -530,6 +533,12 @@ public partial class MainForm : Form
 
         // Create and add color tools
         toolStripItems.AddRange(CreateColorTools());
+
+        // Add separator
+        toolStripItems.Add(CreateModernSeparator());
+
+        // Create and add thickness tools
+        toolStripItems.AddRange(CreateThicknessTools());
 
         // Create and add utility tools
         toolStripItems.AddRange(CreateUtilityTools());
@@ -739,6 +748,114 @@ public partial class MainForm : Form
         
         button.Click += ChangeColor;
         return button;
+    }
+
+    private IEnumerable<ToolStripItem> CreateThicknessTools()
+    {
+        // Add thickness label
+        var thicknessLabel = new ToolStripLabel
+        {
+            Text = "Thickness:",
+            Font = CreateModernFont(8F),
+            ForeColor = CurrentTheme.Text,
+            Margin = new Padding(8, 0, 4, 0)
+        };
+        yield return thicknessLabel;
+
+        // Add thickness trackbar
+        var thicknessTrackBar = new ToolStripControlHost(CreateThicknessTrackBar())
+        {
+            Margin = new Padding(4, 4, 8, 4)
+        };
+        yield return thicknessTrackBar;
+
+        // Add thickness value label
+        var thicknessValueLabel = new ToolStripLabel
+        {
+            Text = "2",
+            Font = CreateModernFont(8F),
+            ForeColor = CurrentTheme.Text,
+            Margin = new Padding(0, 0, 8, 0),
+            Tag = "thicknessValue"
+        };
+        yield return thicknessValueLabel;
+    }
+
+    private TrackBar CreateThicknessTrackBar()
+    {
+        var trackBar = new TrackBar
+        {
+            Minimum = 1,
+            Maximum = 10,
+            Value = 2,
+            TickStyle = TickStyle.None,
+            Size = new Size(80, 25),
+            SmallChange = 1,
+            LargeChange = 2
+        };
+
+        trackBar.ValueChanged += (s, e) =>
+        {
+            if (s is TrackBar tb)
+            {
+                _currentThickness = tb.Value;
+                
+                // Update the thickness value label
+                var valueLabel = toolStrip.Items.OfType<ToolStripLabel>()
+                    .FirstOrDefault(item => item.Tag?.ToString() == "thicknessValue");
+                if (valueLabel != null)
+                {
+                    valueLabel.Text = tb.Value.ToString();
+                }
+
+                // Update thickness of selected annotations
+                UpdateSelectedAnnotationThickness(tb.Value);
+                
+                UpdateStatusBar();
+            }
+        };
+
+        return trackBar;
+    }
+
+    private void UpdateSelectedAnnotationThickness(float thickness)
+    {
+        var selectedAnnotations = _annotationService.Annotations.Where(a => a.IsSelected).ToList();
+        foreach (var annotation in selectedAnnotations)
+        {
+            annotation.Thickness = thickness;
+        }
+        
+        if (selectedAnnotations.Any())
+        {
+            pictureBox.Invalidate();
+        }
+    }
+
+    private void UpdateThicknessControls()
+    {
+        var selectedAnnotation = _annotationService.SelectedAnnotation;
+        if (selectedAnnotation != null)
+        {
+            // Update the current thickness to match the selected annotation
+            _currentThickness = selectedAnnotation.Thickness;
+            
+            // Update the trackbar value
+            var trackBarHost = toolStrip.Items.OfType<ToolStripControlHost>()
+                .FirstOrDefault(item => item.Control is TrackBar);
+            if (trackBarHost?.Control is TrackBar trackBar)
+            {
+                trackBar.Value = Math.Max(trackBar.Minimum, Math.Min(trackBar.Maximum, (int)selectedAnnotation.Thickness));
+            }
+            
+            // Update the thickness value label
+            var valueLabel = toolStrip.Items.OfType<ToolStripLabel>()
+                .FirstOrDefault(item => item.Tag?.ToString() == "thicknessValue");
+            if (valueLabel != null)
+            {
+                valueLabel.Text = selectedAnnotation.Thickness.ToString("F1");
+            }
+        }
     }
 
     private void SetupEventHandlers()
@@ -1679,7 +1796,8 @@ public partial class MainForm : Form
                         textEditor.SelectedTextColor,
                         textEditor.TextContent,
                         textEditor.SelectedFont,
-                        textEditor.SelectedStyle
+                        textEditor.SelectedStyle,
+                        _currentThickness
                     );
                     
                     _annotationService.RemoveAnnotation(existingAnnotation);
@@ -1694,7 +1812,8 @@ public partial class MainForm : Form
                         textEditor.SelectedTextColor,
                         textEditor.TextContent,
                         textEditor.SelectedFont,
-                        textEditor.SelectedStyle
+                        textEditor.SelectedStyle,
+                        _currentThickness
                     );
                     
                     // Note: AddAnnotation will automatically switch to Select tool and select the annotation
@@ -1782,12 +1901,12 @@ public partial class MainForm : Form
                 {
                     IAnnotation? annotation = _currentTool switch
                     {
-                        AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f),
-                        AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f),
-                        AnnotationTool.Line => new LineAnnotation(_lineStart!.Value, e.Location, _currentColor),
-                        AnnotationTool.Arrow => new ArrowAnnotation(_lineStart!.Value, e.Location, _currentColor),
-                        AnnotationTool.Circle => new CircleAnnotation(rectangle, _currentColor, 1.0f),
-                        AnnotationTool.Blur => new BlurAnnotation(rectangle),
+                        AnnotationTool.Rectangle => new RectangleAnnotation(rectangle, _currentColor, 1.0f, _currentThickness),
+                        AnnotationTool.Highlight => new HighlightAnnotation(rectangle, _currentColor, 0.4f, _currentThickness),
+                        AnnotationTool.Line => new LineAnnotation(_lineStart!.Value, e.Location, _currentColor, _currentThickness),
+                        AnnotationTool.Arrow => new ArrowAnnotation(_lineStart!.Value, e.Location, _currentColor, _currentThickness),
+                        AnnotationTool.Circle => new CircleAnnotation(rectangle, _currentColor, 1.0f, _currentThickness),
+                        AnnotationTool.Blur => new BlurAnnotation(rectangle, _currentThickness),
                         _ => null
                     };
 

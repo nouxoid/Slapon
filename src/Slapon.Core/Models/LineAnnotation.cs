@@ -8,10 +8,9 @@ public class LineAnnotation : BaseAnnotation
     private readonly Point _originalEnd;
     private Point _start;
     private Point _end;
-    public float LineThickness { get; set; } = 2f;
 
-    public LineAnnotation(Point start, Point end, Color color)
-        : base(GetBounds(start, end), color, 1.0f)
+    public LineAnnotation(Point start, Point end, Color color, float thickness = 2f)
+        : base(GetBounds(start, end), color, 1.0f, thickness)
     {
         _originalStart = start;
         _originalEnd = end;
@@ -31,7 +30,7 @@ public class LineAnnotation : BaseAnnotation
 
     public override void Draw(Graphics g)
     {
-        using var pen = new Pen(GetTransparentColor(), LineThickness);
+        using var pen = new Pen(GetTransparentColor(), Thickness);
         g.DrawLine(pen, _start, _end);
 
         // Draw selection indicators if selected (using base class method for consistency)
@@ -42,7 +41,7 @@ public class LineAnnotation : BaseAnnotation
     {
         // Create a slightly wider hit area for the line
         var inflatedBounds = Bounds;
-        inflatedBounds.Inflate(LineThickness, LineThickness);
+        inflatedBounds.Inflate(Thickness, Thickness);
         return inflatedBounds.Contains(point);
     }
 
@@ -53,9 +52,8 @@ public class LineAnnotation : BaseAnnotation
 
     public override IAnnotation Clone()
     {
-        return new LineAnnotation(_start, _end, Color)
+        return new LineAnnotation(_start, _end, Color, Thickness)
         {
-            LineThickness = LineThickness,
             IsSelected = IsSelected
         };
     }
@@ -71,7 +69,7 @@ public class LineAnnotation : BaseAnnotation
     {
         using var path = new GraphicsPath();
         path.AddLine(_start, _end);
-        using var pen = new Pen(Color.Black, LineThickness * 5); // Wider hit area for easier selection
+        using var pen = new Pen(Color.Black, Thickness * 5); // Wider hit area for easier selection
         return path.IsOutlineVisible(point, pen);
     }
 
@@ -80,6 +78,6 @@ public class LineAnnotation : BaseAnnotation
         _start = new Point((int)(_originalStart.X * scaleX), (int)(_originalStart.Y * scaleY));
         _end = new Point((int)(_originalEnd.X * scaleX), (int)(_originalEnd.Y * scaleY));
         Bounds = GetBounds(_start, _end);
-        LineThickness *= Math.Min(scaleX, scaleY);
+        Thickness *= Math.Min(scaleX, scaleY);
     }
 }

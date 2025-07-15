@@ -9,5 +9,5 @@ namespace Slapon.Core.Interfaces;
 
 public interface IAnnotationFactory
 {
-    IAnnotation CreateAnnotation(AnnotationType type, RectangleF bounds, Color color, float opacity = 0.8f);
+    IAnnotation CreateAnnotation(AnnotationType type, RectangleF bounds, Color color, float opacity = 0.8f, float thickness = 2.0f);
 }

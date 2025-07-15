@@ -9,8 +9,8 @@ public class BlurAnnotation : BaseAnnotation
 {
     private readonly RectangleF _originalBounds;
 
-    public BlurAnnotation(RectangleF bounds)
-        : base(bounds, Color.Gray, 1.0f)
+    public BlurAnnotation(RectangleF bounds, float thickness = 1.0f)
+        : base(bounds, Color.Gray, 1.0f, thickness)
     {
         _originalBounds = bounds;
     }
@@ -167,7 +167,7 @@ public class BlurAnnotation : BaseAnnotation
 
     public override IAnnotation Clone()
     {
-        return new BlurAnnotation(Bounds)
+        return new BlurAnnotation(Bounds, Thickness)
         {
             IsSelected = this.IsSelected
         };

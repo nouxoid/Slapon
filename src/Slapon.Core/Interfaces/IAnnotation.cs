@@ -9,6 +9,7 @@ public interface IAnnotation
     float Opacity { get; }
     Color Color { get; }
     bool IsSelected { get; set; }
+    float Thickness { get; set; }
     void Draw(Graphics g);
     bool Contains(PointF point);
     void MoveTo(PointF location);
