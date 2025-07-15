@@ -20,6 +20,7 @@
         public static System.Drawing.Image? highlighter => LoadImage(Path.Combine(IconPath, "highlighter.png"));
         public static System.Drawing.Image? line => LoadImage(Path.Combine(IconPath, "line.png"));
         public static System.Drawing.Image? text => LoadImage(Path.Combine(IconPath, "text.png"));
+        public static System.Drawing.Image? circle => LoadImage(Path.Combine(IconPath, "circle.png"));
         public static System.Drawing.Image? clearall => LoadImage(Path.Combine(IconPath, "clearall.png"));
         public static System.Drawing.Image? newcapture => LoadImage(Path.Combine(IconPath, "newcapture.png"));
         public static System.Drawing.Image? select => LoadImage(Path.Combine(IconPath, "select.png"));

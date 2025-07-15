@@ -11,6 +11,7 @@ public class AnnotationFactory : IAnnotationFactory
         return type switch
         {
             AnnotationType.Rectangle => new RectangleAnnotation(bounds, color, opacity),
+            AnnotationType.Circle => new CircleAnnotation(bounds, color, opacity),
             // We'll add other types later
             _ => throw new ArgumentException($"Unknown annotation type: {type}", nameof(type))
         };
