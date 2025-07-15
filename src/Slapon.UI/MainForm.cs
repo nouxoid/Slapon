@@ -1772,7 +1772,8 @@ public partial class MainForm : Form
                 g.DrawImage(_currentImage, Point.Empty);
                 foreach (var annotation in _annotationService.Annotations)
                 {
-                    annotation.Draw(g);
+                    // Save without selection indicators for clean saved images
+                    annotation.Draw(g, false);
                 }
             }
             bitmap.Save(dialog.FileName, ImageFormat.Png);
