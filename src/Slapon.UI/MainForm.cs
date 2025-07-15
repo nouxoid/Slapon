@@ -176,6 +176,9 @@ public partial class MainForm : Form
             UpdateStatusBar();
         };
         
+        // Subscribe to annotation added event for automatic tool switching
+        _annotationService.AnnotationAdded += OnAnnotationAdded;
+        
         SetupUI();
         SetupAnimations();
 
@@ -1636,6 +1639,7 @@ public partial class MainForm : Form
                 }
                 else
                 {
+                    // Clicking away from annotations deselects them but keeps selection tool active
                     _annotationService.SelectAnnotation(null);
                 }
             }
@@ -1646,6 +1650,7 @@ public partial class MainForm : Form
             }
             else
             {
+                // For drawing tools, deselect any selected annotation
                 _annotationService.SelectAnnotation(null);
             }
 
@@ -1679,7 +1684,7 @@ public partial class MainForm : Form
                     
                     _annotationService.RemoveAnnotation(existingAnnotation);
                     _annotationService.AddAnnotation(updatedAnnotation);
-                    _annotationService.SelectAnnotation(updatedAnnotation);
+                    // Note: AddAnnotation will automatically switch to Select tool and select the annotation
                 }
                 else
                 {
@@ -1692,17 +1697,19 @@ public partial class MainForm : Form
                         textEditor.SelectedStyle
                     );
                     
+                    // Note: AddAnnotation will automatically switch to Select tool and select the annotation
                     _annotationService.AddAnnotation(newAnnotation);
-                    _annotationService.SelectAnnotation(newAnnotation);
                 }
                 
                 CopyScreenshotWithAnnotationsToClipboard();
                 UpdateStatusBar();
             }
         }
-        
-        // Switch back to select tool after text creation
-        SetActiveTool(AnnotationTool.Select);
+        else
+        {
+            // If user cancelled text input, switch to select tool
+            SetActiveTool(AnnotationTool.Select);
+        }
     }
 
     private void PictureBox_MouseMove(object sender, MouseEventArgs e)
@@ -1791,8 +1798,8 @@ public partial class MainForm : Form
                             _annotationService.RemovePreviewAnnotation(_currentAnnotation);
                         }
 
+                        // Adding annotation will automatically trigger tool switch to Select via OnAnnotationAdded
                         _annotationService.AddAnnotation(annotation);
-                        _annotationService.SelectAnnotation(annotation);
                         CopyScreenshotWithAnnotationsToClipboard();
                         UpdateStatusBar();
                     }
@@ -2125,5 +2132,17 @@ public partial class MainForm : Form
         
         yield return CreateModernButton("Copy", Resources.copy, (s, e) => CopyScreenshotWithAnnotationsToClipboard(), "Ctrl+C");
         yield return CreateModernButton("Save", Resources.save, SaveImage, "Ctrl+S");
+    }
+
+    private void OnAnnotationAdded(object? sender, IAnnotation annotation)
+    {
+        // Automatically switch to selection tool after placing an annotation
+        SetActiveTool(AnnotationTool.Select);
+        
+        // Automatically select the newly added annotation
+        _annotationService.SelectAnnotation(annotation);
+        
+        // Update the UI to reflect the tool change
+        pictureBox.Invalidate();
     }
 }
