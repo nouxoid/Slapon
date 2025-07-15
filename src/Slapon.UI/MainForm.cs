@@ -378,6 +378,9 @@ public partial class MainForm : Form
                 _ => ""
             };
             baseMessage += shortcutInfo;
+            
+            // Add thickness adjustment shortcut info
+            baseMessage += " | +/- to adjust thickness";
         }
 
         statusLabel.Text = baseMessage;
@@ -423,6 +426,18 @@ public partial class MainForm : Form
         if (keyData == Keys.C) { SetActiveTool(AnnotationTool.Circle); return true; }
         if (keyData == Keys.B) { SetActiveTool(AnnotationTool.Blur); return true; }
         if (keyData == Keys.S) { SetActiveTool(AnnotationTool.Select); return true; }
+        
+        // Quick thickness adjustment with +/- keys
+        if (keyData == Keys.Oemplus || keyData == (Keys.Shift | Keys.Oemplus))
+        {
+            AdjustThickness(1);
+            return true;
+        }
+        if (keyData == Keys.OemMinus)
+        {
+            AdjustThickness(-1);
+            return true;
+        }
         
         return base.ProcessCmdKey(ref msg, keyData);
     }
@@ -765,7 +780,8 @@ public partial class MainForm : Form
         // Add thickness trackbar
         var thicknessTrackBar = new ToolStripControlHost(CreateThicknessTrackBar())
         {
-            Margin = new Padding(4, 4, 8, 4)
+            Margin = new Padding(4, 4, 8, 4),
+            ToolTipText = "Adjust thickness (+ / - keys)"
         };
         yield return thicknessTrackBar;
 
@@ -830,6 +846,33 @@ public partial class MainForm : Form
         {
             pictureBox.Invalidate();
         }
+    }
+
+    private void AdjustThickness(int delta)
+    {
+        var newThickness = Math.Max(1, Math.Min(10, _currentThickness + delta));
+        _currentThickness = newThickness;
+        
+        // Update the trackbar
+        var trackBarHost = toolStrip.Items.OfType<ToolStripControlHost>()
+            .FirstOrDefault(item => item.Control is TrackBar);
+        if (trackBarHost?.Control is TrackBar trackBar)
+        {
+            trackBar.Value = (int)newThickness;
+        }
+        
+        // Update the thickness value label
+        var valueLabel = toolStrip.Items.OfType<ToolStripLabel>()
+            .FirstOrDefault(item => item.Tag?.ToString() == "thicknessValue");
+        if (valueLabel != null)
+        {
+            valueLabel.Text = newThickness.ToString("F1");
+        }
+        
+        // Update thickness of selected annotations
+        UpdateSelectedAnnotationThickness(newThickness);
+        
+        UpdateStatusBar();
     }
 
     private void UpdateThicknessControls()
