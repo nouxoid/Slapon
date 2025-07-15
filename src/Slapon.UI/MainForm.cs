@@ -68,6 +68,7 @@ public partial class MainForm : Form
         Text,
         Arrow,
         Circle,
+        Blur,
         Select
     }
 
@@ -111,6 +112,7 @@ public partial class MainForm : Form
     private ToolStripButton textButton;
     private ToolStripButton arrowButton;
     private ToolStripButton circleButton;
+    private ToolStripButton blurButton;
     private ToolStripButton rotateButton;
     private ToolStripButton selectButton;
     private ToolStrip toolStrip;
@@ -349,6 +351,7 @@ public partial class MainForm : Form
             AnnotationTool.Text => "Click to add text (Modern Text Editor)",
             AnnotationTool.Arrow => "Click and drag to draw an arrow",
             AnnotationTool.Circle => "Click and drag to create a circle",
+            AnnotationTool.Blur => "Click and drag to blur an area",
             AnnotationTool.Select => "Click to select annotations | Double-click text to edit",
             _ => "Ready"
         };
@@ -364,6 +367,7 @@ public partial class MainForm : Form
                 AnnotationTool.Text => " (T)",
                 AnnotationTool.Arrow => " (A)",
                 AnnotationTool.Circle => " (C)",
+                AnnotationTool.Blur => " (B)",
                 AnnotationTool.Select => " (S)",
                 _ => ""
             };
@@ -411,6 +415,7 @@ public partial class MainForm : Form
         if (keyData == Keys.T) { SetActiveTool(AnnotationTool.Text); return true; }
         if (keyData == Keys.A) { SetActiveTool(AnnotationTool.Arrow); return true; }
         if (keyData == Keys.C) { SetActiveTool(AnnotationTool.Circle); return true; }
+        if (keyData == Keys.B) { SetActiveTool(AnnotationTool.Blur); return true; }
         if (keyData == Keys.S) { SetActiveTool(AnnotationTool.Select); return true; }
         
         return base.ProcessCmdKey(ref msg, keyData);
@@ -594,8 +599,9 @@ public partial class MainForm : Form
         btnHighlightTool = CreateModernButton("", Resources.highlighter, (s, e) => SetActiveTool(AnnotationTool.Highlight), "H");
         lineButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Line), "L");
         textButton = CreateModernButton("", Resources.text, (s, e) => SetActiveTool(AnnotationTool.Text), "T");
-        arrowButton = CreateModernButton("", Resources.line, (s, e) => SetActiveTool(AnnotationTool.Arrow), "A");
+        arrowButton = CreateModernButton("", Resources.arrow, (s, e) => SetActiveTool(AnnotationTool.Arrow), "A");
         circleButton = CreateModernButton("", Resources.circle, (s, e) => SetActiveTool(AnnotationTool.Circle), "C");
+        blurButton = CreateModernButton("", Resources.blur, (s, e) => SetActiveTool(AnnotationTool.Blur), "B");
         selectButton = CreateModernButton("", Resources.select, (s, e) => SetActiveTool(AnnotationTool.Select), "S");
 
         yield return btnRectangleTool;
@@ -604,6 +610,7 @@ public partial class MainForm : Form
         yield return textButton;
         yield return arrowButton;
         yield return circleButton;
+        yield return blurButton;
         yield return selectButton;
     }
 
@@ -986,6 +993,8 @@ public partial class MainForm : Form
             "L" => "Line",
             "T" => "Text",
             "A" => "Arrow",
+            "C" => "Circle",
+            "B" => "Blur",
             "S" => "Select",
             _ => ""
         };
@@ -1014,8 +1023,8 @@ public partial class MainForm : Form
     private void UpdateToolbarState()
     {
         // Update button states with modern styling
-        var buttons = new[] { selectButton, btnRectangleTool, btnHighlightTool, lineButton, textButton, arrowButton, circleButton };
-        var tools = new[] { AnnotationTool.Select, AnnotationTool.Rectangle, AnnotationTool.Highlight, AnnotationTool.Line, AnnotationTool.Text, AnnotationTool.Arrow, AnnotationTool.Circle };
+        var buttons = new[] { selectButton, btnRectangleTool, btnHighlightTool, lineButton, textButton, arrowButton, circleButton, blurButton };
+        var tools = new[] { AnnotationTool.Select, AnnotationTool.Rectangle, AnnotationTool.Highlight, AnnotationTool.Line, AnnotationTool.Text, AnnotationTool.Arrow, AnnotationTool.Circle, AnnotationTool.Blur };
 
         for (int i = 0; i < buttons.Length; i++)
         {
@@ -1036,6 +1045,7 @@ public partial class MainForm : Form
         if (textButton != null) textButton.ToolTipText = $"Text Tool{(_currentTool == AnnotationTool.Text ? " (Active)" : "")} (T - when not typing)";
         if (arrowButton != null) arrowButton.ToolTipText = $"Arrow Tool{(_currentTool == AnnotationTool.Arrow ? " (Active)" : "")} (A - when not typing)";
         if (circleButton != null) circleButton.ToolTipText = $"Circle Tool{(_currentTool == AnnotationTool.Circle ? " (Active)" : "")} (C - when not typing)";
+        if (blurButton != null) blurButton.ToolTipText = $"Blur Tool{(_currentTool == AnnotationTool.Blur ? " (Active)" : "")} (B - when not typing)";
     }
 
     protected override void Dispose(bool disposing)
@@ -1727,6 +1737,7 @@ public partial class MainForm : Form
                 AnnotationTool.Line => new LineAnnotation(_lineStart!.Value, e.Location, _currentColor),
                 AnnotationTool.Arrow => new ArrowAnnotation(_lineStart!.Value, e.Location, _currentColor),
                 AnnotationTool.Circle => new CircleAnnotation(GetRectangle(_drawStart.Value, e.Location), _currentColor, 1.0f),
+                AnnotationTool.Blur => new BlurAnnotation(GetRectangle(_drawStart.Value, e.Location)),
                 _ => null
             };
 
@@ -1769,6 +1780,7 @@ public partial class MainForm : Form
                         AnnotationTool.Line => new LineAnnotation(_lineStart!.Value, e.Location, _currentColor),
                         AnnotationTool.Arrow => new ArrowAnnotation(_lineStart!.Value, e.Location, _currentColor),
                         AnnotationTool.Circle => new CircleAnnotation(rectangle, _currentColor, 1.0f),
+                        AnnotationTool.Blur => new BlurAnnotation(rectangle),
                         _ => null
                     };
 
@@ -2111,7 +2123,7 @@ public partial class MainForm : Form
         ocrButton.ToolTipText = "Extract Text (OCR)";
         yield return ocrButton;
         
-        yield return CreateModernButton("Copy", null, (s, e) => CopyScreenshotWithAnnotationsToClipboard(), "Ctrl+C");
-        yield return CreateModernButton("Save", null, SaveImage, "Ctrl+S");
+        yield return CreateModernButton("Copy", Resources.copy, (s, e) => CopyScreenshotWithAnnotationsToClipboard(), "Ctrl+C");
+        yield return CreateModernButton("Save", Resources.save, SaveImage, "Ctrl+S");
     }
 }
