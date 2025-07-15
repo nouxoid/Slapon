@@ -16,6 +16,7 @@ public class AnnotationService : IAnnotationService
 
     // Events
     public event EventHandler<EventArgs>? AnnotationsChanged;
+    public event EventHandler<IAnnotation>? AnnotationAdded;
 
     public void ExecuteCommand(ICommand command)
     {
@@ -63,6 +64,9 @@ public class AnnotationService : IAnnotationService
         System.Diagnostics.Debug.WriteLine($"AddAnnotation called for annotation {annotation.Id}");
         var command = new AddAnnotationCommand(this, annotation);
         ExecuteCommand(command);
+
+        // Fire the AnnotationAdded event after adding the annotation
+        OnAnnotationAdded(annotation);
     }
 
     public void RemoveAnnotation(IAnnotation annotation)
@@ -140,6 +144,11 @@ public class AnnotationService : IAnnotationService
     protected virtual void OnAnnotationsChanged()
     {
         AnnotationsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    protected virtual void OnAnnotationAdded(IAnnotation annotation)
+    {
+        AnnotationAdded?.Invoke(this, annotation);
     }
 
     private void LogStackState(string operation)

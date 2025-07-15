@@ -16,6 +16,7 @@ namespace Slapon.Core.Interfaces
         void SelectAnnotation(IAnnotation? annotation);
         void MoveSelectedAnnotation(PointF newLocation);
         event EventHandler<EventArgs>? AnnotationsChanged;
+        event EventHandler<IAnnotation>? AnnotationAdded;
         IAnnotation? GetAnnotationAt(Point point);
         bool CanUndo { get; }
         bool CanRedo { get; }
