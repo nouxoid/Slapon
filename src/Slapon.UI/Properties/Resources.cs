@@ -26,6 +26,10 @@
         public static System.Drawing.Image? select => LoadImage(Path.Combine(IconPath, "select.png"));
         public static System.Drawing.Image? colorIcon => LoadImage(Path.Combine(IconPath, "colorpicker.png"));
 
+        public static System.Drawing.Image? arrow => LoadImage(Path.Combine(IconPath, "arrow.png"));
+        public static System.Drawing.Image? copy => LoadImage(Path.Combine(IconPath, "copy.png"));
+        public static System.Drawing.Image? save => LoadImage(Path.Combine(IconPath, "save.png"));
+        public static System.Drawing.Image? blur => LoadImage(Path.Combine(IconPath, "blur.png"));
         public static System.Drawing.Image? rotate => LoadImage(Path.Combine(IconPath, "rotation.png"));
         public static System.Drawing.Image? undo => LoadImage(Path.Combine(IconPath, "undo.png"));
         public static System.Drawing.Image? redo => LoadImage(Path.Combine(IconPath, "redo.png"));
