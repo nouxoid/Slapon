@@ -6,11 +6,10 @@ namespace Slapon.Core.Models;
 
 public class CircleAnnotation : BaseAnnotation
 {
-    public float BorderThickness { get; set; } = 2f;
     private readonly RectangleF _originalBounds;
 
-    public CircleAnnotation(RectangleF bounds, Color color, float opacity)
-        : base(bounds, color, opacity)
+    public CircleAnnotation(RectangleF bounds, Color color, float opacity, float thickness = 2f)
+        : base(bounds, color, opacity, thickness)
     {
         _originalBounds = bounds;
     }
@@ -19,7 +18,7 @@ public class CircleAnnotation : BaseAnnotation
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         
-        using var pen = new Pen(GetTransparentColor(), BorderThickness);
+        using var pen = new Pen(GetTransparentColor(), Thickness);
 
         // Check for valid bounds
         if (Bounds.Width > 0 && Bounds.Height > 0 &&
@@ -53,7 +52,7 @@ public class CircleAnnotation : BaseAnnotation
         var ellipseValue = (dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY);
 
         // Add some tolerance for border thickness
-        var tolerance = Math.Max(BorderThickness / radiusX, BorderThickness / radiusY);
+        var tolerance = Math.Max(Thickness / radiusX, Thickness / radiusY);
         return ellipseValue <= (1 + tolerance);
     }
 
@@ -70,9 +69,8 @@ public class CircleAnnotation : BaseAnnotation
 
     public override IAnnotation Clone()
     {
-        return new CircleAnnotation(Bounds, Color, Opacity)
+        return new CircleAnnotation(Bounds, Color, Opacity, Thickness)
         {
-            BorderThickness = BorderThickness,
             IsSelected = IsSelected
         };
     }
@@ -85,6 +83,6 @@ public class CircleAnnotation : BaseAnnotation
             _originalBounds.Width * scaleX,
             _originalBounds.Height * scaleY
         );
-        BorderThickness *= Math.Min(scaleX, scaleY);
+        Thickness *= Math.Min(scaleX, scaleY);
     }
 }

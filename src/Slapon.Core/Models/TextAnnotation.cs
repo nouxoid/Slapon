@@ -17,8 +17,8 @@ public class TextAnnotation : BaseAnnotation
     public Font Font => _font;
     public TextStyle Style => _style;
 
-    public TextAnnotation(Point location, Color color, string text, Font? font = null, TextStyle? style = null)
-        : base(GetInitialBounds(location, text, font ?? GetDefaultFont()), color, 1.0f)
+    public TextAnnotation(Point location, Color color, string text, Font? font = null, TextStyle? style = null, float thickness = 1.0f)
+        : base(GetInitialBounds(location, text, font ?? GetDefaultFont()), color, 1.0f, thickness)
     {
         _text = text;
         _font = font ?? GetDefaultFont();
@@ -53,11 +53,11 @@ public class TextAnnotation : BaseAnnotation
 
         var textRect = Rectangle.Round(Bounds);
         
-        // Calculate scaled font size
+        // Calculate scaled font size - use Thickness as an additional scaling factor
         float scaleX = (float)_textSize.Width / _originalTextSize.Width;
         float scaleY = (float)_textSize.Height / _originalTextSize.Height;
         float scale = Math.Min(scaleX, scaleY);
-        float scaledFontSize = Math.Max(6, _font.Size * scale);
+        float scaledFontSize = Math.Max(6, _font.Size * scale * Thickness);
         
         using var scaledFont = new Font(_font.FontFamily, scaledFontSize, _font.Style);
 
@@ -177,7 +177,7 @@ public class TextAnnotation : BaseAnnotation
 
     public override IAnnotation Clone()
     {
-        return new TextAnnotation(Point.Round(Bounds.Location), Color, _text, _font, _style)
+        return new TextAnnotation(Point.Round(Bounds.Location), Color, _text, _font, _style, Thickness)
         {
             IsSelected = IsSelected
         };
@@ -193,7 +193,7 @@ public class TextAnnotation : BaseAnnotation
     // Create a new text annotation with updated text while preserving formatting
     public TextAnnotation UpdateText(string newText)
     {
-        return new TextAnnotation(Point.Round(Bounds.Location), Color, newText, _font, _style)
+        return new TextAnnotation(Point.Round(Bounds.Location), Color, newText, _font, _style, Thickness)
         {
             IsSelected = IsSelected
         };
@@ -202,7 +202,7 @@ public class TextAnnotation : BaseAnnotation
     // Create a new text annotation with updated style
     public TextAnnotation UpdateStyle(TextStyle newStyle)
     {
-        return new TextAnnotation(Point.Round(Bounds.Location), Color, _text, _font, newStyle)
+        return new TextAnnotation(Point.Round(Bounds.Location), Color, _text, _font, newStyle, Thickness)
         {
             IsSelected = IsSelected
         };
@@ -211,7 +211,7 @@ public class TextAnnotation : BaseAnnotation
     // Create a new text annotation with updated font
     public TextAnnotation UpdateFont(Font newFont)
     {
-        return new TextAnnotation(Point.Round(Bounds.Location), Color, _text, newFont, _style)
+        return new TextAnnotation(Point.Round(Bounds.Location), Color, _text, newFont, _style, Thickness)
         {
             IsSelected = IsSelected
         };

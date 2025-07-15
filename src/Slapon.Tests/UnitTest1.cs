@@ -21,7 +21,7 @@ public class CircleAnnotationTests
         Assert.Equal(bounds, circle.Bounds);
         Assert.Equal(color, circle.Color);
         Assert.Equal(opacity, circle.Opacity);
-        Assert.Equal(2f, circle.BorderThickness);
+        Assert.Equal(2f, circle.Thickness);
         Assert.False(circle.IsSelected);
         Assert.NotEqual(Guid.Empty, circle.Id);
     }
@@ -95,7 +95,7 @@ public class CircleAnnotationTests
         var opacity = 0.9f;
         var original = new CircleAnnotation(bounds, color, opacity)
         {
-            BorderThickness = 3f,
+            Thickness = 3f,
             IsSelected = true
         };
 
@@ -107,7 +107,7 @@ public class CircleAnnotationTests
         Assert.Equal(original.Bounds, clone.Bounds);
         Assert.Equal(original.Color, clone.Color);
         Assert.Equal(original.Opacity, clone.Opacity);
-        Assert.Equal(original.BorderThickness, clone.BorderThickness);
+        Assert.Equal(original.Thickness, clone.Thickness);
         Assert.Equal(original.IsSelected, clone.IsSelected);
     }
 
@@ -135,7 +135,7 @@ public class CircleAnnotationTests
         var initialBounds = new RectangleF(10, 20, 40, 60);
         var circle = new CircleAnnotation(initialBounds, Color.Orange, 0.5f)
         {
-            BorderThickness = 4f
+            Thickness = 4f
         };
         var scaleX = 2.0f;
         var scaleY = 1.5f;
@@ -146,7 +146,7 @@ public class CircleAnnotationTests
         // Assert
         var expectedBounds = new RectangleF(20, 30, 80, 90);
         Assert.Equal(expectedBounds, circle.Bounds);
-        Assert.Equal(6f, circle.BorderThickness); // Should scale by minimum scale factor (1.5f) * 4f = 6f
+        Assert.Equal(6f, circle.Thickness); // Should scale by minimum scale factor (1.5f) * 4f = 6f
     }
 
     [Fact]
@@ -200,5 +200,49 @@ public class AnnotationFactoryTests
         // Assert
         Assert.IsType<CircleAnnotation>(annotation);
         Assert.Equal(0.8f, annotation.Opacity);
+    }
+
+    [Fact]
+    public void CircleAnnotation_Thickness_DefaultValue_IsTwo()
+    {
+        // Arrange
+        var bounds = new RectangleF(0, 0, 100, 100);
+        var color = Color.Red;
+
+        // Act
+        var circle = new CircleAnnotation(bounds, color, 1.0f);
+
+        // Assert
+        Assert.Equal(2f, circle.Thickness);
+    }
+
+    [Fact]
+    public void CircleAnnotation_Thickness_CustomValue_IsSet()
+    {
+        // Arrange
+        var bounds = new RectangleF(0, 0, 100, 100);
+        var color = Color.Blue;
+        var thickness = 5f;
+
+        // Act
+        var circle = new CircleAnnotation(bounds, color, 1.0f, thickness);
+
+        // Assert
+        Assert.Equal(thickness, circle.Thickness);
+    }
+
+    [Fact]
+    public void CircleAnnotation_Thickness_CanBeModified()
+    {
+        // Arrange
+        var bounds = new RectangleF(0, 0, 100, 100);
+        var circle = new CircleAnnotation(bounds, Color.Green, 1.0f);
+        var newThickness = 7f;
+
+        // Act
+        circle.Thickness = newThickness;
+
+        // Assert
+        Assert.Equal(newThickness, circle.Thickness);
     }
 }

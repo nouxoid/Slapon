@@ -7,8 +7,8 @@ public class HighlightAnnotation : BaseAnnotation
 {
     private readonly RectangleF _originalBounds;
 
-    public HighlightAnnotation(RectangleF bounds, Color color, float opacity = 0.4f)
-        : base(bounds, color, opacity)
+    public HighlightAnnotation(RectangleF bounds, Color color, float opacity = 0.4f, float thickness = 1.0f)
+        : base(bounds, color, opacity, thickness)
     {
         _originalBounds = bounds;
     }
@@ -41,7 +41,7 @@ public class HighlightAnnotation : BaseAnnotation
 
     public override IAnnotation Clone()
     {
-        return new HighlightAnnotation(Bounds, Color, Opacity)
+        return new HighlightAnnotation(Bounds, Color, Opacity, Thickness)
         {
             IsSelected = this.IsSelected
         };
