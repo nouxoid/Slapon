@@ -846,6 +846,8 @@ public partial class MainForm : Form
         if (selectedAnnotations.Any())
         {
             pictureBox.Invalidate();
+            // Copy to clipboard immediately when thickness changes
+            CopyScreenshotWithAnnotationsToClipboard();
         }
     }
 
@@ -860,6 +862,8 @@ public partial class MainForm : Form
         if (selectedAnnotations.Any())
         {
             pictureBox.Invalidate();
+            // Copy to clipboard immediately when color changes
+            CopyScreenshotWithAnnotationsToClipboard();
         }
     }
 
@@ -1585,7 +1589,8 @@ public partial class MainForm : Form
                 g.DrawImage(_currentImage, Point.Empty);
                 foreach (var annotation in _annotationService.Annotations)
                 {
-                    annotation.Draw(g);
+                    // Draw annotations without selection indicators for clean clipboard copy
+                    annotation.Draw(g, false);
                 }
             }
             Clipboard.SetImage(bitmap);
@@ -1970,6 +1975,8 @@ public partial class MainForm : Form
             if (_dragStartPosition.HasValue)
             {
                 _annotationService.MoveAnnotation(_draggedAnnotation, _dragStartPosition.Value, _draggedAnnotation.Bounds.Location);
+                // Copy to clipboard immediately when annotation is moved
+                CopyScreenshotWithAnnotationsToClipboard();
             }
 
             _dragStart = null;

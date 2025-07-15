@@ -17,6 +17,19 @@ public class TextAnnotation : BaseAnnotation
     public Font Font => _font;
     public TextStyle Style => _style;
 
+    /// <summary>
+    /// Override thickness property to update bounds when changed
+    /// </summary>
+    public new float Thickness
+    {
+        get => base.Thickness;
+        set
+        {
+            base.Thickness = value;
+            UpdateBoundsForThickness();
+        }
+    }
+
     public TextAnnotation(Point location, Color color, string text, Font? font = null, TextStyle? style = null, float thickness = 1.0f)
         : base(GetInitialBounds(location, text, font ?? GetDefaultFont()), color, 1.0f, thickness)
     {
@@ -44,6 +57,24 @@ public class TextAnnotation : BaseAnnotation
         Bounds = new RectangleF(location, _textSize);
     }
 
+    /// <summary>
+    /// Updates the bounds to match the actual rendered text size including thickness scaling
+    /// </summary>
+    private void UpdateBoundsForThickness()
+    {
+        // Calculate scaled font size with current thickness
+        float scaleX = (float)_textSize.Width / _originalTextSize.Width;
+        float scaleY = (float)_textSize.Height / _originalTextSize.Height;
+        float scale = Math.Min(scaleX, scaleY);
+        float scaledFontSize = Math.Max(6, _font.Size * scale * Thickness);
+        
+        using var scaledFont = new Font(_font.FontFamily, scaledFontSize, _font.Style);
+        var actualTextSize = TextRenderer.MeasureText(_text, scaledFont);
+        
+        // Update bounds to match actual rendered size
+        Bounds = new RectangleF(Bounds.Location, actualTextSize);
+    }
+
     public override void Draw(Graphics g)
     {
         if (string.IsNullOrEmpty(_text)) return;
@@ -51,8 +82,6 @@ public class TextAnnotation : BaseAnnotation
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
-        var textRect = Rectangle.Round(Bounds);
-        
         // Calculate scaled font size - use Thickness as an additional scaling factor
         float scaleX = (float)_textSize.Width / _originalTextSize.Width;
         float scaleY = (float)_textSize.Height / _originalTextSize.Height;
@@ -60,6 +89,14 @@ public class TextAnnotation : BaseAnnotation
         float scaledFontSize = Math.Max(6, _font.Size * scale * Thickness);
         
         using var scaledFont = new Font(_font.FontFamily, scaledFontSize, _font.Style);
+
+        // Calculate the actual rendered text size with the scaled font
+        var actualTextSize = TextRenderer.MeasureText(_text, scaledFont);
+        var textRect = new Rectangle(
+            (int)Bounds.X, 
+            (int)Bounds.Y, 
+            actualTextSize.Width, 
+            actualTextSize.Height);
 
         // Draw background if enabled
         if (_style.HasBackground)
@@ -107,7 +144,7 @@ public class TextAnnotation : BaseAnnotation
         TextRenderer.DrawText(g, _text, scaledFont, textRect, textColor, 
             TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoClipping);
 
-        // Draw selection indicator
+        // Draw selection indicator using the actual text bounds
         if (IsSelected)
         {
             using var pen = new Pen(Color.FromArgb(100, 181, 246), 2f) { DashStyle = DashStyle.Dash };
@@ -115,7 +152,7 @@ public class TextAnnotation : BaseAnnotation
             selectionRect.Inflate(4, 4);
             g.DrawRectangle(pen, selectionRect);
 
-            // Draw resize handles
+            // Draw resize handles using the actual text bounds
             DrawResizeHandles(g, selectionRect);
         }
     }
