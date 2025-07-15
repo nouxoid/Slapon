@@ -68,6 +68,15 @@ public abstract class BaseAnnotation : IAnnotation
     }
 
     /// <summary>
+    /// Updates the color of the annotation
+    /// </summary>
+    /// <param name="color">The new color for the annotation</param>
+    public virtual void UpdateColor(Color color)
+    {
+        Color = color;
+    }
+
+    /// <summary>
     /// Draws selection indicators around the annotation when it's selected
     /// </summary>
     protected virtual void DrawSelectionIndicators(Graphics g)

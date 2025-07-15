@@ -176,6 +176,7 @@ public partial class MainForm : Form
             UpdateUndoRedoState();
             UpdateStatusBar();
             UpdateThicknessControls();
+            UpdateColorControls();
         };
         
         // Subscribe to annotation added event for automatic tool switching
@@ -848,6 +849,20 @@ public partial class MainForm : Form
         }
     }
 
+    private void UpdateSelectedAnnotationColor(Color color)
+    {
+        var selectedAnnotations = _annotationService.Annotations.Where(a => a.IsSelected).ToList();
+        foreach (var annotation in selectedAnnotations)
+        {
+            annotation.UpdateColor(color);
+        }
+        
+        if (selectedAnnotations.Any())
+        {
+            pictureBox.Invalidate();
+        }
+    }
+
     private void AdjustThickness(int delta)
     {
         var newThickness = Math.Max(1, Math.Min(10, _currentThickness + delta));
@@ -898,6 +913,19 @@ public partial class MainForm : Form
             {
                 valueLabel.Text = selectedAnnotation.Thickness.ToString("F1");
             }
+        }
+    }
+
+    private void UpdateColorControls()
+    {
+        var selectedAnnotation = _annotationService.SelectedAnnotation;
+        if (selectedAnnotation != null)
+        {
+            // Update the current color to match the selected annotation
+            _currentColor = selectedAnnotation.Color;
+            
+            // Update the color button states to reflect the selected annotation's color
+            UpdateColorButtonStates();
         }
     }
 
@@ -988,6 +1016,14 @@ public partial class MainForm : Form
         button.Click += (s, e) =>
         {
             _currentColor = color;
+            
+            // Update color of selected annotations if any are selected
+            var selectedAnnotations = _annotationService.Annotations.Where(a => a.IsSelected).ToList();
+            if (selectedAnnotations.Any())
+            {
+                UpdateSelectedAnnotationColor(_currentColor);
+            }
+            
             UpdateColorButtonStates();
             UpdateStatusBar();
         };
@@ -1747,6 +1783,14 @@ public partial class MainForm : Form
         if (dialog.ShowDialog() == DialogResult.OK)
         {
             _currentColor = dialog.SelectedColor;
+            
+            // Update color of selected annotations if any are selected
+            var selectedAnnotations = _annotationService.Annotations.Where(a => a.IsSelected).ToList();
+            if (selectedAnnotations.Any())
+            {
+                UpdateSelectedAnnotationColor(_currentColor);
+            }
+            
             UpdateColorButtonStates();
             UpdateStatusBar();
         }

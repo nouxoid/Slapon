@@ -18,4 +18,5 @@ public interface IAnnotation
     bool HitTest(Point point);
     void Move(int deltaX, int deltaY);
     void Resize(float widthScale, float heightScale);
+    void UpdateColor(Color color);
 }
