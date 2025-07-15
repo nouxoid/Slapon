@@ -11,6 +11,7 @@ public interface IAnnotation
     bool IsSelected { get; set; }
     float Thickness { get; set; }
     void Draw(Graphics g);
+    void Draw(Graphics g, bool showSelection);
     bool Contains(PointF point);
     void MoveTo(PointF location);
     IAnnotation Clone();
@@ -18,4 +19,5 @@ public interface IAnnotation
     bool HitTest(Point point);
     void Move(int deltaX, int deltaY);
     void Resize(float widthScale, float heightScale);
+    void UpdateColor(Color color);
 }

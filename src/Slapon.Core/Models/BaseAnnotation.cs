@@ -29,6 +29,34 @@ public abstract class BaseAnnotation : IAnnotation
     public abstract bool Contains(Point point);
 
     public abstract void Draw(Graphics g);
+    
+    /// <summary>
+    /// Draws the annotation with optional selection indicators
+    /// </summary>
+    /// <param name="g">Graphics context</param>
+    /// <param name="showSelection">Whether to show selection indicators</param>
+    public virtual void Draw(Graphics g, bool showSelection)
+    {
+        // Temporarily store the selection state
+        bool originalSelectionState = IsSelected;
+        
+        // Set selection state based on parameter
+        if (!showSelection)
+        {
+            IsSelected = false;
+        }
+        
+        try
+        {
+            // Call the regular Draw method
+            Draw(g);
+        }
+        finally
+        {
+            // Restore original selection state
+            IsSelected = originalSelectionState;
+        }
+    }
     public abstract bool Contains(PointF point);
     public abstract IAnnotation Clone();
 
@@ -65,6 +93,15 @@ public abstract class BaseAnnotation : IAnnotation
             Bounds.Width * scaleX,
             Bounds.Height * scaleY
         );
+    }
+
+    /// <summary>
+    /// Updates the color of the annotation
+    /// </summary>
+    /// <param name="color">The new color for the annotation</param>
+    public virtual void UpdateColor(Color color)
+    {
+        Color = color;
     }
 
     /// <summary>

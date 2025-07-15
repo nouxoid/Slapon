@@ -245,4 +245,148 @@ public class AnnotationFactoryTests
         // Assert
         Assert.Equal(newThickness, circle.Thickness);
     }
+
+    [Fact]
+    public void CircleAnnotation_UpdateColor_ChangesColor()
+    {
+        // Arrange
+        var bounds = new RectangleF(0, 0, 100, 100);
+        var initialColor = Color.Red;
+        var newColor = Color.Blue;
+        var circle = new CircleAnnotation(bounds, initialColor, 1.0f);
+
+        // Act
+        circle.UpdateColor(newColor);
+
+        // Assert
+        Assert.Equal(newColor, circle.Color);
+    }
+
+    [Fact]
+    public void CircleAnnotation_UpdateColor_PreservesOtherProperties()
+    {
+        // Arrange
+        var bounds = new RectangleF(10, 20, 50, 60);
+        var initialColor = Color.Green;
+        var newColor = Color.Purple;
+        var opacity = 0.7f;
+        var thickness = 3.5f;
+        var circle = new CircleAnnotation(bounds, initialColor, opacity, thickness)
+        {
+            IsSelected = true
+        };
+
+        // Act
+        circle.UpdateColor(newColor);
+
+        // Assert
+        Assert.Equal(newColor, circle.Color);
+        Assert.Equal(bounds, circle.Bounds);
+        Assert.Equal(opacity, circle.Opacity);
+        Assert.Equal(thickness, circle.Thickness);
+        Assert.True(circle.IsSelected);
+    }
+}
+
+public class RectangleAnnotationColorTests
+{
+    [Fact]
+    public void RectangleAnnotation_UpdateColor_ChangesColor()
+    {
+        // Arrange
+        var bounds = new RectangleF(0, 0, 100, 100);
+        var initialColor = Color.Red;
+        var newColor = Color.Blue;
+        var rectangle = new RectangleAnnotation(bounds, initialColor, 1.0f);
+
+        // Act
+        rectangle.UpdateColor(newColor);
+
+        // Assert
+        Assert.Equal(newColor, rectangle.Color);
+    }
+
+    [Fact]
+    public void RectangleAnnotation_UpdateColor_PreservesOtherProperties()
+    {
+        // Arrange
+        var bounds = new RectangleF(5, 10, 80, 90);
+        var initialColor = Color.Yellow;
+        var newColor = Color.Orange;
+        var opacity = 0.6f;
+        var thickness = 2.5f;
+        var rectangle = new RectangleAnnotation(bounds, initialColor, opacity, thickness)
+        {
+            IsSelected = true
+        };
+
+        // Act
+        rectangle.UpdateColor(newColor);
+
+        // Assert
+        Assert.Equal(newColor, rectangle.Color);
+        Assert.Equal(bounds, rectangle.Bounds);
+        Assert.Equal(opacity, rectangle.Opacity);
+        Assert.Equal(thickness, rectangle.Thickness);
+        Assert.True(rectangle.IsSelected);
+    }
+}
+
+public class LineAnnotationColorTests
+{
+    [Fact]
+    public void LineAnnotation_UpdateColor_ChangesColor()
+    {
+        // Arrange
+        var start = new Point(10, 20);
+        var end = new Point(50, 60);
+        var initialColor = Color.Black;
+        var newColor = Color.White;
+        var line = new LineAnnotation(start, end, initialColor);
+
+        // Act
+        line.UpdateColor(newColor);
+
+        // Assert
+        Assert.Equal(newColor, line.Color);
+    }
+}
+
+public class ArrowAnnotationColorTests
+{
+    [Fact]
+    public void ArrowAnnotation_UpdateColor_ChangesColor()
+    {
+        // Arrange
+        var start = new Point(0, 0);
+        var end = new Point(100, 100);
+        var initialColor = Color.DarkBlue;
+        var newColor = Color.LightBlue;
+        var arrow = new ArrowAnnotation(start, end, initialColor);
+
+        // Act
+        arrow.UpdateColor(newColor);
+
+        // Assert
+        Assert.Equal(newColor, arrow.Color);
+    }
+}
+
+public class HighlightAnnotationColorTests
+{
+    [Fact]
+    public void HighlightAnnotation_UpdateColor_ChangesColor()
+    {
+        // Arrange
+        var bounds = new RectangleF(20, 30, 60, 40);
+        var initialColor = Color.Yellow;
+        var newColor = Color.Pink;
+        var highlight = new HighlightAnnotation(bounds, initialColor);
+
+        // Act
+        highlight.UpdateColor(newColor);
+
+        // Assert
+        Assert.Equal(newColor, highlight.Color);
+    }
 }

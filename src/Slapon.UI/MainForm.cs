@@ -176,6 +176,7 @@ public partial class MainForm : Form
             UpdateUndoRedoState();
             UpdateStatusBar();
             UpdateThicknessControls();
+            UpdateColorControls();
         };
         
         // Subscribe to annotation added event for automatic tool switching
@@ -845,6 +846,24 @@ public partial class MainForm : Form
         if (selectedAnnotations.Any())
         {
             pictureBox.Invalidate();
+            // Copy to clipboard immediately when thickness changes
+            CopyScreenshotWithAnnotationsToClipboard();
+        }
+    }
+
+    private void UpdateSelectedAnnotationColor(Color color)
+    {
+        var selectedAnnotations = _annotationService.Annotations.Where(a => a.IsSelected).ToList();
+        foreach (var annotation in selectedAnnotations)
+        {
+            annotation.UpdateColor(color);
+        }
+        
+        if (selectedAnnotations.Any())
+        {
+            pictureBox.Invalidate();
+            // Copy to clipboard immediately when color changes
+            CopyScreenshotWithAnnotationsToClipboard();
         }
     }
 
@@ -898,6 +917,19 @@ public partial class MainForm : Form
             {
                 valueLabel.Text = selectedAnnotation.Thickness.ToString("F1");
             }
+        }
+    }
+
+    private void UpdateColorControls()
+    {
+        var selectedAnnotation = _annotationService.SelectedAnnotation;
+        if (selectedAnnotation != null)
+        {
+            // Update the current color to match the selected annotation
+            _currentColor = selectedAnnotation.Color;
+            
+            // Update the color button states to reflect the selected annotation's color
+            UpdateColorButtonStates();
         }
     }
 
@@ -988,6 +1020,14 @@ public partial class MainForm : Form
         button.Click += (s, e) =>
         {
             _currentColor = color;
+            
+            // Update color of selected annotations if any are selected
+            var selectedAnnotations = _annotationService.Annotations.Where(a => a.IsSelected).ToList();
+            if (selectedAnnotations.Any())
+            {
+                UpdateSelectedAnnotationColor(_currentColor);
+            }
+            
             UpdateColorButtonStates();
             UpdateStatusBar();
         };
@@ -1549,7 +1589,8 @@ public partial class MainForm : Form
                 g.DrawImage(_currentImage, Point.Empty);
                 foreach (var annotation in _annotationService.Annotations)
                 {
-                    annotation.Draw(g);
+                    // Draw annotations without selection indicators for clean clipboard copy
+                    annotation.Draw(g, false);
                 }
             }
             Clipboard.SetImage(bitmap);
@@ -1731,7 +1772,8 @@ public partial class MainForm : Form
                 g.DrawImage(_currentImage, Point.Empty);
                 foreach (var annotation in _annotationService.Annotations)
                 {
-                    annotation.Draw(g);
+                    // Save without selection indicators for clean saved images
+                    annotation.Draw(g, false);
                 }
             }
             bitmap.Save(dialog.FileName, ImageFormat.Png);
@@ -1747,6 +1789,14 @@ public partial class MainForm : Form
         if (dialog.ShowDialog() == DialogResult.OK)
         {
             _currentColor = dialog.SelectedColor;
+            
+            // Update color of selected annotations if any are selected
+            var selectedAnnotations = _annotationService.Annotations.Where(a => a.IsSelected).ToList();
+            if (selectedAnnotations.Any())
+            {
+                UpdateSelectedAnnotationColor(_currentColor);
+            }
+            
             UpdateColorButtonStates();
             UpdateStatusBar();
         }
@@ -1926,6 +1976,8 @@ public partial class MainForm : Form
             if (_dragStartPosition.HasValue)
             {
                 _annotationService.MoveAnnotation(_draggedAnnotation, _dragStartPosition.Value, _draggedAnnotation.Bounds.Location);
+                // Copy to clipboard immediately when annotation is moved
+                CopyScreenshotWithAnnotationsToClipboard();
             }
 
             _dragStart = null;
