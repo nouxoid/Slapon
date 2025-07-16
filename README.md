@@ -7,6 +7,7 @@ Annotation Tools: Rectangle, Highlight, Line, Text, and Select.
 Color Picker: Choose from common colors or use a custom color picker.
 Screen Capture: Capture the screen or a selected region.
 Image Manipulation: Resize, move, and edit annotations.
+Interactive Resizing: Drag resize handles to adjust annotation size, shape, and direction.
 Clipboard Integration: Copy images with annotations directly to the clipboard.
 Save Functionality: Save annotated images in PNG format.
 Installation
@@ -25,6 +26,12 @@ Usage
 Run the application.
 Use the toolbar at the top to select an annotation tool.
 Capture the screen or open an image to annotate.
+**Resizing Annotations**: 
+  - Switch to the Select tool (cursor icon)
+  - Click on any annotation to select it and show resize handles
+  - Drag corner handles to resize shapes (Rectangle, Circle, Highlight, Text)
+  - Drag endpoint handles to adjust line direction and length (Line, Arrow)
+  - Text annotations scale proportionally when resized
 Save or copy the annotated image as needed.
 Dependencies
 System.Drawing: Used for image manipulation and rendering.
