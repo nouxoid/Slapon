@@ -1,5 +1,6 @@
 # Color Customization Feature
-
+#Some issue still to be fixed later
+, but this is the main feature implementation
 This document describes the new color customization functionality for annotations in Slapon.
 
 ## Overview
