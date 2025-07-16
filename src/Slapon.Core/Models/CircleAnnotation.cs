@@ -61,12 +61,6 @@ public class CircleAnnotation : BaseAnnotation
         return Contains(new PointF(point.X, point.Y));
     }
 
-    // Override HitTest to use the ellipse-specific hit detection
-    public override bool HitTest(Point point)
-    {
-        return Contains(point);
-    }
-
     public override IAnnotation Clone()
     {
         return new CircleAnnotation(Bounds, Color, Opacity, Thickness)

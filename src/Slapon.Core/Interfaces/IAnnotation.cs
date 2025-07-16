@@ -1,4 +1,5 @@
 using System.Drawing;
+using Slapon.Core.Models;
 
 namespace Slapon.Core.Interfaces;
 
@@ -20,4 +21,8 @@ public interface IAnnotation
     void Move(int deltaX, int deltaY);
     void Resize(float widthScale, float heightScale);
     void UpdateColor(Color color);
+    
+    // Resize handle methods for interactive resizing
+    ResizeHandle GetResizeHandle(Point point);
+    void ResizeToHandle(ResizeHandle handle, Point newPosition);
 }

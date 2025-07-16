@@ -70,7 +70,40 @@ public class LineAnnotation : BaseAnnotation
         using var path = new GraphicsPath();
         path.AddLine(_start, _end);
         using var pen = new Pen(Color.Black, Thickness * 5); // Wider hit area for easier selection
-        return path.IsOutlineVisible(point, pen);
+        return path.IsOutlineVisible(point, pen) || GetResizeHandle(point) != ResizeHandle.None;
+    }
+
+    public override ResizeHandle GetResizeHandle(Point point)
+    {
+        if (!IsSelected) return ResizeHandle.None;
+
+        const int handleSize = 10; // Larger handle for line endpoints
+        
+        var startRect = new Rectangle(_start.X - handleSize/2, _start.Y - handleSize/2, handleSize, handleSize);
+        var endRect = new Rectangle(_end.X - handleSize/2, _end.Y - handleSize/2, handleSize, handleSize);
+
+        if (startRect.Contains(point))
+            return ResizeHandle.ArrowStart;
+        if (endRect.Contains(point))
+            return ResizeHandle.ArrowEnd;
+
+        return ResizeHandle.None;
+    }
+
+    public override void ResizeToHandle(ResizeHandle handle, Point newPosition)
+    {
+        switch (handle)
+        {
+            case ResizeHandle.ArrowStart:
+                _start = newPosition;
+                break;
+            case ResizeHandle.ArrowEnd:
+                _end = newPosition;
+                break;
+        }
+        
+        // Update bounds after changing endpoints
+        Bounds = GetBounds(_start, _end);
     }
 
     public override void Resize(float scaleX, float scaleY)

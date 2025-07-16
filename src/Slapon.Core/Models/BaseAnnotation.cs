@@ -65,11 +65,6 @@ public abstract class BaseAnnotation : IAnnotation
         Bounds = new RectangleF(location, Bounds.Size);
     }
 
-    public virtual bool HitTest(Point point)
-    {
-        return Contains(point);
-    }
-
     public virtual void Move(int deltaX, int deltaY)
     {
         Bounds = new RectangleF(
@@ -186,5 +181,99 @@ public abstract class BaseAnnotation : IAnnotation
             g.FillEllipse(brush, handleRect);
             g.DrawEllipse(pen, handleRect);
         }
+    }
+
+    /// <summary>
+    /// Gets the resize handle at the specified point
+    /// Default implementation for rectangular annotations
+    /// </summary>
+    public virtual ResizeHandle GetResizeHandle(Point point)
+    {
+        if (!IsSelected) return ResizeHandle.None;
+
+        const int handleSize = 8;
+        var bounds = Rectangle.Round(Bounds);
+        bounds.Inflate(6, 6); // Match the inflation used in DrawSelectionIndicators
+
+        var handles = new[]
+        {
+            (ResizeHandle.TopLeft, new Rectangle(bounds.Left - handleSize/2, bounds.Top - handleSize/2, handleSize, handleSize)),
+            (ResizeHandle.TopRight, new Rectangle(bounds.Right - handleSize/2, bounds.Top - handleSize/2, handleSize, handleSize)),
+            (ResizeHandle.BottomRight, new Rectangle(bounds.Right - handleSize/2, bounds.Bottom - handleSize/2, handleSize, handleSize)),
+            (ResizeHandle.BottomLeft, new Rectangle(bounds.Left - handleSize/2, bounds.Bottom - handleSize/2, handleSize, handleSize))
+        };
+
+        foreach (var (handle, rect) in handles)
+        {
+            if (rect.Contains(point))
+                return handle;
+        }
+
+        return ResizeHandle.None;
+    }
+
+    /// <summary>
+    /// Resizes the annotation to the specified handle position
+    /// Default implementation for rectangular annotations
+    /// </summary>
+    public virtual void ResizeToHandle(ResizeHandle handle, Point newPosition)
+    {
+        var currentBounds = Bounds;
+        
+        switch (handle)
+        {
+            case ResizeHandle.TopLeft:
+                Bounds = new RectangleF(
+                    newPosition.X,
+                    newPosition.Y,
+                    currentBounds.Right - newPosition.X,
+                    currentBounds.Bottom - newPosition.Y);
+                break;
+            case ResizeHandle.TopRight:
+                Bounds = new RectangleF(
+                    currentBounds.X,
+                    newPosition.Y,
+                    newPosition.X - currentBounds.X,
+                    currentBounds.Bottom - newPosition.Y);
+                break;
+            case ResizeHandle.BottomRight:
+                Bounds = new RectangleF(
+                    currentBounds.X,
+                    currentBounds.Y,
+                    newPosition.X - currentBounds.X,
+                    newPosition.Y - currentBounds.Y);
+                break;
+            case ResizeHandle.BottomLeft:
+                Bounds = new RectangleF(
+                    newPosition.X,
+                    currentBounds.Y,
+                    currentBounds.Right - newPosition.X,
+                    newPosition.Y - currentBounds.Y);
+                break;
+        }
+
+        // Ensure minimum size
+        if (Bounds.Width < 5)
+        {
+            if (handle == ResizeHandle.TopLeft || handle == ResizeHandle.BottomLeft)
+                Bounds = new RectangleF(currentBounds.Right - 5, Bounds.Y, 5, Bounds.Height);
+            else
+                Bounds = new RectangleF(Bounds.X, Bounds.Y, 5, Bounds.Height);
+        }
+        if (Bounds.Height < 5)
+        {
+            if (handle == ResizeHandle.TopLeft || handle == ResizeHandle.TopRight)
+                Bounds = new RectangleF(Bounds.X, currentBounds.Bottom - 5, Bounds.Width, 5);
+            else
+                Bounds = new RectangleF(Bounds.X, Bounds.Y, Bounds.Width, 5);
+        }
+    }
+
+    /// <summary>
+    /// Enhanced HitTest that includes resize handles
+    /// </summary>
+    public override bool HitTest(Point point)
+    {
+        return Contains(point) || GetResizeHandle(point) != ResizeHandle.None;
     }
 }
