@@ -34,11 +34,6 @@ public class HighlightAnnotation : BaseAnnotation
         return Bounds.Contains(point);
     }
 
-    public override bool HitTest(Point point)
-    {
-        return Contains(point);
-    }
-
     public override IAnnotation Clone()
     {
         return new HighlightAnnotation(Bounds, Color, Opacity, Thickness)

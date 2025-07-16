@@ -82,6 +82,11 @@ public partial class MainForm : Form
     private Point _lastMousePosition;
     private IAnnotation? _draggedAnnotation;
 
+    // Resize operation fields
+    private bool _isResizing = false;
+    private ResizeHandle _activeResizeHandle = ResizeHandle.None;
+    private IAnnotation? _resizingAnnotation;
+
     // Fixed: Store original image dimensions that never change
     private float _originalImageWidth;
     private float _originalImageHeight;
@@ -1833,18 +1838,35 @@ public partial class MainForm : Form
 
                 if (clickedAnnotation != null)
                 {
-                    _dragStart = e.Location;
-                    _lastMousePosition = e.Location;
-                    _draggedAnnotation = clickedAnnotation;
-                    _dragStartPosition = null;
-                    _annotationService.SelectAnnotation(clickedAnnotation);
-                    
-                    // If it's a text annotation, allow editing with double-click
-                    if (clickedAnnotation is TextAnnotation textAnnotation)
+                    // Check if clicking on a resize handle first
+                    var resizeHandle = clickedAnnotation.GetResizeHandle(e.Location);
+                    if (resizeHandle != ResizeHandle.None)
                     {
-                        // Store location for potential edit
-                        _textEditLocation = e.Location;
-                        _textEditAnnotation = textAnnotation;
+                        // Start resize operation
+                        _isResizing = true;
+                        _activeResizeHandle = resizeHandle;
+                        _resizingAnnotation = clickedAnnotation;
+                        _annotationService.SelectAnnotation(clickedAnnotation);
+                        
+                        // Set appropriate cursor
+                        SetResizeCursor(resizeHandle);
+                    }
+                    else
+                    {
+                        // Start drag operation
+                        _dragStart = e.Location;
+                        _lastMousePosition = e.Location;
+                        _draggedAnnotation = clickedAnnotation;
+                        _dragStartPosition = null;
+                        _annotationService.SelectAnnotation(clickedAnnotation);
+                        
+                        // If it's a text annotation, allow editing with double-click
+                        if (clickedAnnotation is TextAnnotation textAnnotation)
+                        {
+                            // Store location for potential edit
+                            _textEditLocation = e.Location;
+                            _textEditAnnotation = textAnnotation;
+                        }
                     }
                 }
                 else
@@ -1926,7 +1948,16 @@ public partial class MainForm : Form
 
     private void PictureBox_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_currentTool == AnnotationTool.Select && e.Button == MouseButtons.Left && _draggedAnnotation != null)
+        // Handle resize operations
+        if (_currentTool == AnnotationTool.Select && e.Button == MouseButtons.Left && _isResizing && _resizingAnnotation != null)
+        {
+            _resizingAnnotation.ResizeToHandle(_activeResizeHandle, e.Location);
+            pictureBox.Invalidate();
+            return;
+        }
+
+        // Handle drag operations
+        if (_currentTool == AnnotationTool.Select && e.Button == MouseButtons.Left && _draggedAnnotation != null && !_isResizing)
         {
             int deltaX = e.Location.X - _lastMousePosition.X;
             int deltaY = e.Location.Y - _lastMousePosition.Y;
@@ -1942,6 +1973,31 @@ public partial class MainForm : Form
             return;
         }
 
+        // Update cursor when hovering over annotations in select mode
+        if (_currentTool == AnnotationTool.Select && e.Button == MouseButtons.None)
+        {
+            var hoveredAnnotation = _annotationService.Annotations
+                .FirstOrDefault(a => a.HitTest(e.Location));
+            
+            if (hoveredAnnotation != null)
+            {
+                var resizeHandle = hoveredAnnotation.GetResizeHandle(e.Location);
+                if (resizeHandle != ResizeHandle.None)
+                {
+                    SetResizeCursor(resizeHandle);
+                }
+                else
+                {
+                    pictureBox.Cursor = Cursors.SizeAll; // Move cursor
+                }
+            }
+            else
+            {
+                pictureBox.Cursor = Cursors.Default;
+            }
+        }
+
+        // Handle drawing operations
         if (e.Button == MouseButtons.Left && _drawStart.HasValue)
         {
             if (_currentAnnotation != null)
@@ -1971,6 +2027,21 @@ public partial class MainForm : Form
 
     private void PictureBox_MouseUp(object sender, MouseEventArgs e)
     {
+        // Handle resize operations
+        if (_currentTool == AnnotationTool.Select && _isResizing && _resizingAnnotation != null)
+        {
+            // Copy to clipboard immediately when annotation is resized
+            CopyScreenshotWithAnnotationsToClipboard();
+            
+            _isResizing = false;
+            _activeResizeHandle = ResizeHandle.None;
+            _resizingAnnotation = null;
+            pictureBox.Cursor = Cursors.Default;
+            pictureBox.Invalidate();
+            return;
+        }
+
+        // Handle drag operations
         if (_currentTool == AnnotationTool.Select && _draggedAnnotation != null)
         {
             if (_dragStartPosition.HasValue)
@@ -2034,6 +2105,17 @@ public partial class MainForm : Form
             Math.Abs(end.X - start.X),
             Math.Abs(end.Y - start.Y)
         );
+    }
+
+    private void SetResizeCursor(ResizeHandle handle)
+    {
+        pictureBox.Cursor = handle switch
+        {
+            ResizeHandle.TopLeft or ResizeHandle.BottomRight => Cursors.SizeNWSE,
+            ResizeHandle.TopRight or ResizeHandle.BottomLeft => Cursors.SizeNESW,
+            ResizeHandle.ArrowStart or ResizeHandle.ArrowEnd => Cursors.SizeAll,
+            _ => Cursors.Default
+        };
     }
 
     private void MainForm_Load(object sender, EventArgs e)

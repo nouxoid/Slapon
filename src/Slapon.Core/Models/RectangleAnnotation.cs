@@ -41,12 +41,6 @@ public class RectangleAnnotation : BaseAnnotation
         return Contains(new PointF(point.X, point.Y));
     }
 
-    // Override HitTest to use the inflated bounds for better hit detection
-    public override bool HitTest(Point point)
-    {
-        return Contains(point);
-    }
-
     public override IAnnotation Clone()
     {
         return new RectangleAnnotation(Bounds, Color, Opacity, Thickness)

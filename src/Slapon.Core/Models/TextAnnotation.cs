@@ -207,9 +207,93 @@ public class TextAnnotation : BaseAnnotation
         return Contains(new PointF(point.X, point.Y));
     }
 
-    public override bool HitTest(Point point)
+    public override ResizeHandle GetResizeHandle(Point point)
     {
-        return Contains(point);
+        if (!IsSelected) return ResizeHandle.None;
+
+        const int handleSize = 6;
+        
+        // Calculate actual text bounds for hit testing
+        float scaleX = (float)_textSize.Width / _originalTextSize.Width;
+        float scaleY = (float)_textSize.Height / _originalTextSize.Height;
+        float scale = Math.Min(scaleX, scaleY);
+        float scaledFontSize = Math.Max(6, _font.Size * scale * Thickness);
+        
+        using var scaledFont = new Font(_font.FontFamily, scaledFontSize, _font.Style);
+        var actualTextSize = TextRenderer.MeasureText(_text, scaledFont);
+        var textRect = new Rectangle(
+            (int)Bounds.X, 
+            (int)Bounds.Y, 
+            actualTextSize.Width, 
+            actualTextSize.Height);
+        textRect.Inflate(4, 4); // Match the inflation used in Draw method
+
+        var handles = new[]
+        {
+            (ResizeHandle.TopLeft, new Rectangle(textRect.Left - handleSize/2, textRect.Top - handleSize/2, handleSize, handleSize)),
+            (ResizeHandle.TopRight, new Rectangle(textRect.Right - handleSize/2, textRect.Top - handleSize/2, handleSize, handleSize)),
+            (ResizeHandle.BottomRight, new Rectangle(textRect.Right - handleSize/2, textRect.Bottom - handleSize/2, handleSize, handleSize)),
+            (ResizeHandle.BottomLeft, new Rectangle(textRect.Left - handleSize/2, textRect.Bottom - handleSize/2, handleSize, handleSize))
+        };
+
+        foreach (var (handle, rect) in handles)
+        {
+            if (rect.Contains(point))
+                return handle;
+        }
+
+        return ResizeHandle.None;
+    }
+
+    public override void ResizeToHandle(ResizeHandle handle, Point newPosition)
+    {
+        var currentBounds = Bounds;
+        var newBounds = currentBounds;
+        
+        switch (handle)
+        {
+            case ResizeHandle.TopLeft:
+                newBounds = new RectangleF(
+                    newPosition.X,
+                    newPosition.Y,
+                    currentBounds.Right - newPosition.X,
+                    currentBounds.Bottom - newPosition.Y);
+                break;
+            case ResizeHandle.TopRight:
+                newBounds = new RectangleF(
+                    currentBounds.X,
+                    newPosition.Y,
+                    newPosition.X - currentBounds.X,
+                    currentBounds.Bottom - newPosition.Y);
+                break;
+            case ResizeHandle.BottomRight:
+                newBounds = new RectangleF(
+                    currentBounds.X,
+                    currentBounds.Y,
+                    newPosition.X - currentBounds.X,
+                    newPosition.Y - currentBounds.Y);
+                break;
+            case ResizeHandle.BottomLeft:
+                newBounds = new RectangleF(
+                    newPosition.X,
+                    currentBounds.Y,
+                    currentBounds.Right - newPosition.X,
+                    newPosition.Y - currentBounds.Y);
+                break;
+        }
+
+        // Ensure minimum size and update text size proportionally
+        if (newBounds.Width > 20 && newBounds.Height > 20)
+        {
+            float scaleX = newBounds.Width / currentBounds.Width;
+            float scaleY = newBounds.Height / currentBounds.Height;
+            
+            _textSize = new Size(
+                Math.Max(20, (int)(_textSize.Width * scaleX)), 
+                Math.Max(20, (int)(_textSize.Height * scaleY)));
+            
+            UpdateBounds(newBounds.Location);
+        }
     }
 
     public override IAnnotation Clone()
